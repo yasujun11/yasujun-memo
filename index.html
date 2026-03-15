@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="やすじゅんメモ">
+  <title>やすじゅんメモ</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: #f0f4f0;
+      color: #333;
+      font-size: 16px;
+      padding-bottom: 90px;
+    }
+
+    header {
+      background: #2c6e49;
+      color: white;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 18px; font-weight: bold; }
+    #save-indicator { font-size: 12px; opacity: 0.85; }
+
+    .section {
+      background: white;
+      margin: 12px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .section-header {
+      background: #2c6e49;
+      color: white;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .section-body { padding: 14px 12px; }
+
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 16px;
+      font-family: inherit;
+      color: #333;
+      background: #fafafa;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2c6e49;
+      background: white;
+    }
+    textarea {
+      resize: none;
+      min-height: 80px;
+      overflow: hidden;
+      line-height: 1.5;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: normal;
+      color: #333;
+      background: #f0f0f0;
+      padding: 8px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .radio-group label:has(input:checked) {
+      background: #d4edda;
+      color: #2c6e49;
+      font-weight: bold;
+    }
+    .radio-group input { width: auto; margin: 0; }
+
+    #order-items { display: flex; flex-direction: column; gap: 8px; }
+    .order-item { display: flex; gap: 8px; align-items: center; }
+    .order-item input:first-child { flex: 1; }
+    .order-item input:nth-child(2) { width: 100px; }
+    .btn-add-item {
+      background: #f0f9f3;
+      color: #2c6e49;
+      border: 1.5px dashed #2c6e49;
+      border-radius: 8px;
+      padding: 9px;
+      width: 100%;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-remove {
+      background: #fff0f0;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      padding: 10px 14px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+    }
+    .btn-copy {
+      flex: 1;
+      background: #2c6e49;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-copy:active { background: #1e4d33; }
+    .btn-clear {
+      background: #f5f5f5;
+      color: #666;
+      border: 1.5px solid #ddd;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #toast {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 22px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+
+    .sub-label {
+      font-size: 12px;
+      color: #888;
+      font-weight: normal;
+      margin-bottom: 5px;
+      margin-top: 10px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📝 やすじゅんメモ</h1>
+  <span id="save-indicator">● 保存済み</span>
+</header>
+
+<div id="toast"></div>
+
+<!-- ■ 基本情報 -->
+<div class="section">
+  <div class="section-header">■ 基本情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>ジャンル</label>
+      <select id="genre">
+        <option value="グルメ">グルメ</option>
+        <option value="おでかけ">おでかけ</option>
+        <option value="ウルトラウォーキング">ウルトラウォーキング</option>
+        <option value="サンフレッチェ広島">サンフレッチェ広島</option>
+        <option value="FUNKY MONKEY BΛBY'S">FUNKY MONKEY BΛBY'S</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>訪問日</label>
+      <input type="date" id="visit-date">
+    </div>
+    <div class="field">
+      <label>店名 / 場所名</label>
+      <input type="text" id="store-name" placeholder="例: ツキサップじんぎすかんクラブ">
+    </div>
+    <div class="field">
+      <label>エリア（最寄り駅・都市名）</label>
+      <input type="text" id="area" placeholder="例: 札幌市豊平区 / 月寒中央駅">
+    </div>
+  </div>
+</div>
+
+<!-- ■ イントロ -->
+<div class="section">
+  <div class="section-header">■ イントロ</div>
+  <div class="section-body">
+    <div class="field">
+      <label>訪問のきっかけ・エピソード</label>
+      <textarea id="intro-reason" placeholder="なぜ行こうと思ったか。SNSで見た・口コミ・家族のリクエスト など"></textarea>
+    </div>
+    <div class="field">
+      <label>個人的なエピソード（任意）</label>
+      <textarea id="intro-episode" placeholder="長女の誕生日だった / 久しぶりの再訪 / 前回〇〇だったのでリベンジ など"></textarea>
+    </div>
+    <div class="field">
+      <label>関連記事（イントロ直後）</label>
+      <span class="sub-label">WordPress 記事ID</span>
+      <input type="text" id="related-intro-id" placeholder="例: 1234">
+      <span class="sub-label">コメント</span>
+      <input type="text" id="related-intro-comment" placeholder="例: 冬の北海道3泊4日の詳細はこちら">
+    </div>
+    <div class="field">
+      <label>関連記事（まとめ後）</label>
+      <span class="sub-label">WordPress 記事ID</span>
+      <input type="text" id="related-summary-id" placeholder="例: 1234">
+      <span class="sub-label">コメント</span>
+      <input type="text" id="related-summary-comment" placeholder="例: 北海道旅行の全体まとめはこちら">
+    </div>
+    <div class="field">
+      <label>X（Twitter）投稿URL</label>
+      <input type="url" id="x-url" placeholder="https://x.com/...">
+    </div>
+  </div>
+</div>
+
+<!-- ■ お店の概要 -->
+<div class="section">
+  <div class="section-header">■ お店の概要</div>
+  <div class="section-body">
+    <div class="field">
+      <label>外観・雰囲気</label>
+      <textarea id="appearance" placeholder="外観の特徴・席数・カウンター/テーブル など"></textarea>
+    </div>
+    <div class="field">
+      <label>訪問時刻</label>
+      <input type="text" id="visit-time" placeholder="例: 18時頃">
+    </div>
+    <div class="field">
+      <label>混み具合</label>
+      <div class="radio-group">
+        <label><input type="radio" name="crowd" value="空いていた"> 空いていた</label>
+        <label><input type="radio" name="crowd" value="少し混んでいた"> 少し混んでいた</label>
+        <label><input type="radio" name="crowd" value="行列あり"> 行列あり</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>待ち時間</label>
+      <input type="text" id="wait-time" placeholder="例: すぐ座れた / 10分ほど待った / 予約済み">
+    </div>
+    <div class="field">
+      <label>注文方法</label>
+      <div class="radio-group">
+        <label><input type="radio" name="order-method" value="券売機"> 券売機</label>
+        <label><input type="radio" name="order-method" value="QRコード"> QRコード</label>
+        <label><input type="radio" name="order-method" value="口頭"> 口頭</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>注文したもの</label>
+      <div id="order-items">
+        <div class="order-item">
+          <input type="text" placeholder="メニュー名" oninput="scheduleAutoSave()">
+          <input type="text" placeholder="金額" oninput="scheduleAutoSave()">
+          <button class="btn-remove" onclick="removeOrderItem(this)">×</button>
+        </div>
+      </div>
+      <button class="btn-add-item" onclick="addOrderItem()">＋ 追加</button>
+    </div>
+    <div class="field">
+      <label>合計金額</label>
+      <input type="text" id="total-price" placeholder="例: 2,400円 / 2人で合計4,800円">
+    </div>
+    <div class="field">
+      <label>カスタマイズ・辛さ変更など</label>
+      <input type="text" id="customize" placeholder="例: 辛さ3辛 / 麺硬め">
+    </div>
+  </div>
+</div>
+
+<!-- ■ 実食レビュー -->
+<div class="section">
+  <div class="section-header">■ 実食レビュー</div>
+  <div class="section-body">
+    <div class="field">
+      <label>良かったこと・感動したこと</label>
+      <textarea id="review-good" placeholder="見た目・味・食感・美味しさの秘密など"></textarea>
+    </div>
+    <div class="field">
+      <label>ネガティブな点・注意点</label>
+      <textarea id="review-bad" placeholder="提供スピード・アクセス・駐車場・席の狭さ など"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ まとめ -->
+<div class="section">
+  <div class="section-header">■ まとめ・感想</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="summary" placeholder="一番良かったところ・次回試したいもの・リピートしたいか"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 店舗情報 -->
+<div class="section">
+  <div class="section-header">■ 店舗情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>住所</label>
+      <input type="text" id="address" placeholder="例: 北海道札幌市豊平区月寒東1条15-1-30">
+    </div>
+    <div class="field">
+      <label>電話番号</label>
+      <input type="text" id="phone" placeholder="例: 011-851-1653">
+    </div>
+    <div class="field">
+      <label>営業時間</label>
+      <input type="text" id="hours" placeholder="例: 11:00〜20:00（LO 19:30）">
+    </div>
+    <div class="field">
+      <label>定休日</label>
+      <input type="text" id="closed" placeholder="例: 火曜日・水曜日">
+    </div>
+    <div class="field">
+      <label>駐車場</label>
+      <input type="text" id="parking" placeholder="例: あり（無料）">
+    </div>
+    <div class="field">
+      <label>公式サイト URL</label>
+      <input type="url" id="url-site" placeholder="https://...">
+    </div>
+    <div class="field">
+      <label>Instagram URL</label>
+      <input type="url" id="url-instagram" placeholder="https://instagram.com/...">
+    </div>
+    <div class="field">
+      <label>X（Twitter）URL</label>
+      <input type="url" id="url-twitter" placeholder="https://x.com/...">
+    </div>
+    <div class="field">
+      <label>食べログ・ホットペッパー URL</label>
+      <input type="url" id="url-tabelog" placeholder="https://...">
+    </div>
+  </div>
+</div>
+
+<!-- ■ その他メモ -->
+<div class="section">
+  <div class="section-header">■ その他メモ</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="other" placeholder="写真の枚数・順番のメモ・補足情報など"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-copy" onclick="copyMemo()">📋 テキストをコピー</button>
+  <button class="btn-clear" onclick="clearAll()">🗑 クリア</button>
+</div>
+
+<script>
+const STORAGE_KEY = 'yasujun_memo_v1';
+let saveTimer = null;
+
+function dayOfWeek(dateStr) {
+  if (!dateStr) return '';
+  const days = ['日','月','火','水','木','金','土'];
+  return days[new Date(dateStr).getDay()] + '曜日';
+}
+
+// ─── 自動保存 ─────────────────────────────────────────────
+function scheduleAutoSave() {
+  document.getElementById('save-indicator').textContent = '○ 保存中...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectData()));
+    document.getElementById('save-indicator').textContent = '● 保存済み';
+  }, 600);
+}
+
+// ─── データ収集 ───────────────────────────────────────────
+function collectData() {
+  const orderItems = [];
+  document.querySelectorAll('#order-items .order-item').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    orderItems.push({ name: inputs[0].value, price: inputs[1].value });
+  });
+  return {
+    genre:                document.getElementById('genre').value,
+    visitDate:            document.getElementById('visit-date').value,
+    storeName:            document.getElementById('store-name').value,
+    area:                 document.getElementById('area').value,
+    introReason:          document.getElementById('intro-reason').value,
+    introEpisode:         document.getElementById('intro-episode').value,
+    relatedIntroId:       document.getElementById('related-intro-id').value,
+    relatedIntroComment:  document.getElementById('related-intro-comment').value,
+    relatedSummaryId:     document.getElementById('related-summary-id').value,
+    relatedSummaryComment:document.getElementById('related-summary-comment').value,
+    xUrl:                 document.getElementById('x-url').value,
+    appearance:           document.getElementById('appearance').value,
+    visitTime:            document.getElementById('visit-time').value,
+    crowd:                document.querySelector('input[name="crowd"]:checked')?.value || '',
+    waitTime:             document.getElementById('wait-time').value,
+    orderMethod:          document.querySelector('input[name="order-method"]:checked')?.value || '',
+    orderItems,
+    totalPrice:           document.getElementById('total-price').value,
+    customize:            document.getElementById('customize').value,
+    reviewGood:           document.getElementById('review-good').value,
+    reviewBad:            document.getElementById('review-bad').value,
+    summary:              document.getElementById('summary').value,
+    address:              document.getElementById('address').value,
+    phone:                document.getElementById('phone').value,
+    hours:                document.getElementById('hours').value,
+    closed:               document.getElementById('closed').value,
+    parking:              document.getElementById('parking').value,
+    urlSite:              document.getElementById('url-site').value,
+    urlInstagram:         document.getElementById('url-instagram').value,
+    urlTwitter:           document.getElementById('url-twitter').value,
+    urlTabelog:           document.getElementById('url-tabelog').value,
+    other:                document.getElementById('other').value,
+  };
+}
+
+// ─── データ復元 ───────────────────────────────────────────
+function loadData(d) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+  set('genre', d.genre);
+  set('visit-date', d.visitDate);
+  set('store-name', d.storeName);
+  set('area', d.area);
+  set('intro-reason', d.introReason);
+  set('intro-episode', d.introEpisode);
+  set('related-intro-id', d.relatedIntroId);
+  set('related-intro-comment', d.relatedIntroComment);
+  set('related-summary-id', d.relatedSummaryId);
+  set('related-summary-comment', d.relatedSummaryComment);
+  set('x-url', d.xUrl);
+  set('appearance', d.appearance);
+  set('visit-time', d.visitTime);
+  if (d.crowd) { const r = document.querySelector(`input[name="crowd"][value="${d.crowd}"]`); if (r) r.checked = true; }
+  set('wait-time', d.waitTime);
+  if (d.orderMethod) { const r = document.querySelector(`input[name="order-method"][value="${d.orderMethod}"]`); if (r) r.checked = true; }
+  set('total-price', d.totalPrice);
+  set('customize', d.customize);
+  set('review-good', d.reviewGood);
+  set('review-bad', d.reviewBad);
+  set('summary', d.summary);
+  set('address', d.address);
+  set('phone', d.phone);
+  set('hours', d.hours);
+  set('closed', d.closed);
+  set('parking', d.parking);
+  set('url-site', d.urlSite);
+  set('url-instagram', d.urlInstagram);
+  set('url-twitter', d.urlTwitter);
+  set('url-tabelog', d.urlTabelog);
+  set('other', d.other);
+
+  if (d.orderItems?.length) {
+    document.getElementById('order-items').innerHTML = '';
+    d.orderItems.forEach(i => addOrderItem(i.name, i.price));
+  }
+  document.querySelectorAll('textarea').forEach(autoResize);
+}
+
+// ─── 注文アイテム ─────────────────────────────────────────
+function addOrderItem(name = '', price = '') {
+  const div = document.createElement('div');
+  div.className = 'order-item';
+  div.innerHTML = `
+    <input type="text" placeholder="メニュー名" value="${name}" oninput="scheduleAutoSave()">
+    <input type="text" placeholder="金額" value="${price}" oninput="scheduleAutoSave()">
+    <button class="btn-remove" onclick="removeOrderItem(this)">×</button>`;
+  document.getElementById('order-items').appendChild(div);
+}
+
+function removeOrderItem(btn) {
+  const c = document.getElementById('order-items');
+  if (c.children.length > 1) { btn.parentElement.remove(); scheduleAutoSave(); }
+}
+
+// ─── textarea 自動リサイズ ────────────────────────────────
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ─── テキスト生成（memo.txt 形式） ───────────────────────
+function buildMemoText(d) {
+  const dateStr = d.visitDate
+    ? (() => {
+        const [y, m, day] = d.visitDate.split('-');
+        return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`;
+      })()
+    : '';
+
+  const orderLines = (d.orderItems || [])
+    .filter(i => i.name)
+    .map(i => `  - ${i.name}${i.price ? '　' + i.price : ''}`)
+    .join('\n') || '  - ';
+
+  return `ジャンル: ${d.genre || ''}
+訪問日: ${dateStr}
+店名: ${d.storeName || ''}
+エリア（最寄り駅・都市名など）: ${d.area || ''}
+
+========================================
+■ イントロ
+========================================
+
+【訪問のきっかけ・エピソード】
+${d.introReason || ''}
+
+【個人的なエピソード・特別な事情】
+${d.introEpisode || ''}
+
+【関連記事】
+イントロ直後に紹介する記事:
+  記事ID: ${d.relatedIntroId || ''}
+  コメント: ${d.relatedIntroComment || ''}
+
+まとめ後に紹介する記事:
+  記事ID: ${d.relatedSummaryId || ''}
+  コメント: ${d.relatedSummaryComment || ''}
+
+【X（Twitter）投稿】
+URL: ${d.xUrl || ''}
+
+========================================
+■ お店の概要
+========================================
+
+【外観・雰囲気】
+${d.appearance || ''}
+
+【混雑・待ち時間】
+訪問時刻: ${d.visitTime || ''}
+混み具合: ${d.crowd || ''}
+待ち時間: ${d.waitTime || ''}
+
+【注文方法・メニュー】
+注文方法: ${d.orderMethod || ''}
+注文したもの:
+${orderLines}
+合計金額: ${d.totalPrice || ''}
+カスタマイズ・辛さ変更など: ${d.customize || ''}
+
+========================================
+■ 実食レビュー
+========================================
+
+【良かったこと・感動したこと】
+${d.reviewGood || ''}
+
+【ネガティブな点・注意点】
+${d.reviewBad || ''}
+
+========================================
+■ まとめ・感想
+========================================
+${d.summary || ''}
+
+========================================
+■ 店舗情報
+========================================
+住所: ${d.address || ''}
+電話番号: ${d.phone || ''}
+営業時間: ${d.hours || ''}
+定休日: ${d.closed || ''}
+駐車場: ${d.parking || ''}
+公式サイト URL: ${d.urlSite || ''}
+Instagram URL: ${d.urlInstagram || ''}
+X（Twitter）URL: ${d.urlTwitter || ''}
+食べログ・ホットペッパー URL: ${d.urlTabelog || ''}
+
+========================================
+■ その他メモ
+========================================
+${d.other || ''}`;
+}
+
+// ─── コピー ──────────────────────────────────────────────
+async function copyMemo() {
+  const text = buildMemoText(collectData());
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  showToast('✅ コピーしました！');
+}
+
+// ─── クリア ──────────────────────────────────────────────
+function clearAll() {
+  if (!confirm('入力内容をすべてクリアしますか？')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ─── トースト ────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── 初期化 ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // 保存データ復元
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) loadData(JSON.parse(saved));
+  } catch {}
+
+  // 自動保存イベント
+  document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => {
+    el.addEventListener('input', scheduleAutoSave);
+  });
+  document.querySelectorAll('input[type=radio]').forEach(el => {
+    el.addEventListener('change', scheduleAutoSave);
+  });
+
+  // textarea 自動リサイズ
+  document.querySelectorAll('textarea').forEach(el => {
+    el.addEventListener('input', () => autoResize(el));
+  });
+
+  // 今日の日付をデフォルト設定
+  const dateEl = document.getElementById('visit-date');
+  if (!dateEl.value) {
+    dateEl.value = new Date().toISOString().split('T')[0];
+  }
+});
+</script>
+</body>
+</html>
