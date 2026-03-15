@@ -33,37 +33,124 @@
     header h1 { font-size: 18px; font-weight: bold; }
     #save-indicator { font-size: 12px; opacity: 0.85; }
 
-    .slot-bar {
+    /* ── メモ一覧バー ── */
+    .memo-bar {
       background: #1e4d33;
       padding: 8px 12px;
       display: flex;
+      align-items: center;
       gap: 8px;
       position: sticky;
       top: 49px;
       z-index: 99;
     }
-    .slot-btn {
+    #current-memo-label {
       flex: 1;
-      background: rgba(255,255,255,0.15);
       color: white;
-      border: 1.5px solid rgba(255,255,255,0.3);
-      border-radius: 8px;
-      padding: 7px 4px;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      text-align: center;
-      line-height: 1.3;
-      transition: background 0.15s;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .slot-btn.active {
+    .btn-list {
       background: white;
       color: #1e4d33;
-      border-color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 13px;
       font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
     }
-    .slot-btn .slot-name { display: block; font-size: 10px; opacity: 0.8; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .slot-btn.active .slot-name { opacity: 0.7; }
+    .btn-new {
+      background: #52b788;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ── モーダル ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      align-items: flex-end;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-sheet {
+      background: white;
+      width: 100%;
+      max-height: 80vh;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: #2c6e49;
+      color: white;
+      padding: 14px 16px;
+      font-weight: bold;
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .btn-modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .modal-body { overflow-y: auto; flex: 1; }
+    .memo-list-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .memo-list-item:active { background: #f0f9f3; }
+    .memo-list-item.active-item { background: #e8f5e9; }
+    .memo-item-info { flex: 1; min-width: 0; }
+    .memo-item-name {
+      font-weight: bold;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .memo-item-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .btn-delete-item {
+      background: #fff0f0;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .memo-list-empty {
+      text-align: center;
+      color: #aaa;
+      padding: 30px;
+      font-size: 14px;
+    }
 
     .section {
       background: white;
@@ -249,12 +336,23 @@
   <span id="save-indicator">● 保存済み</span>
 </header>
 
+<div class="memo-bar">
+  <span id="current-memo-label">新規メモ</span>
+  <button class="btn-list" onclick="openList()">📋 一覧</button>
+  <button class="btn-new" onclick="createNewMemo()">＋ 新規</button>
+</div>
+
 <div id="toast"></div>
 
-<div class="slot-bar">
-  <button class="slot-btn active" id="slot-btn-1" onclick="switchSlot(1)">スロット1<span class="slot-name" id="slot-name-1">（空）</span></button>
-  <button class="slot-btn" id="slot-btn-2" onclick="switchSlot(2)">スロット2<span class="slot-name" id="slot-name-2">（空）</span></button>
-  <button class="slot-btn" id="slot-btn-3" onclick="switchSlot(3)">スロット3<span class="slot-name" id="slot-name-3">（空）</span></button>
+<!-- メモ一覧モーダル -->
+<div class="modal-overlay" id="list-modal" onclick="handleOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>保存済みメモ一覧</span>
+      <button class="btn-modal-close" onclick="closeList()">✕</button>
+    </div>
+    <div class="modal-body" id="memo-list-body"></div>
+  </div>
 </div>
 
 <!-- ■ 基本情報 -->
@@ -453,73 +551,188 @@
 
 <div class="bottom-bar">
   <button class="btn-copy" onclick="copyMemo()">📋 テキストをコピー</button>
-  <button class="btn-clear" onclick="clearAll()">🗑 クリア</button>
+  <button class="btn-clear" onclick="clearCurrent()">🗑 クリア</button>
 </div>
 
 <script>
-const STORAGE_PREFIX = 'yasujun_memo_slot_';
-let currentSlot = 1;
+const IDS_KEY   = 'yasujun_memo_ids';
+const DATA_KEY  = id => 'yasujun_memo_data_' + id;
+const MAX_MEMOS = 20;
+
+let currentId = null;
 let saveTimer = null;
 
-function slotKey(n) { return STORAGE_PREFIX + n; }
-
-function updateSlotButtons() {
-  for (let i = 1; i <= 3; i++) {
-    const btn = document.getElementById('slot-btn-' + i);
-    const nameEl = document.getElementById('slot-name-' + i);
-    btn.classList.toggle('active', i === currentSlot);
-    try {
-      const saved = localStorage.getItem(slotKey(i));
-      if (saved) {
-        const d = JSON.parse(saved);
-        nameEl.textContent = d.storeName ? d.storeName : '（入力中）';
-      } else {
-        nameEl.textContent = '（空）';
-      }
-    } catch { nameEl.textContent = '（空）'; }
-  }
+// ─── ID管理 ───────────────────────────────────────────────
+function getIds() {
+  try { return JSON.parse(localStorage.getItem(IDS_KEY)) || []; } catch { return []; }
 }
-
-function switchSlot(n) {
-  if (n === currentSlot) return;
-  // 現在のスロットを即時保存
-  localStorage.setItem(slotKey(currentSlot), JSON.stringify(collectData()));
-  currentSlot = n;
-  // 新しいスロットを読み込む
-  clearForm();
-  try {
-    const saved = localStorage.getItem(slotKey(currentSlot));
-    if (saved) loadData(JSON.parse(saved));
-  } catch {}
-  updateSlotButtons();
-  showToast('スロット' + n + 'に切り替えました');
-}
-
-function clearForm() {
-  document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => { el.value = ''; });
-  document.querySelectorAll('input[type=radio]').forEach(el => { el.checked = false; });
-  document.getElementById('order-items').innerHTML = '';
-  addOrderItem();
-  const dateEl = document.getElementById('visit-date');
-  dateEl.value = new Date().toISOString().split('T')[0];
-  document.getElementById('genre').value = 'グルメ';
-}
-
-function dayOfWeek(dateStr) {
-  if (!dateStr) return '';
-  const days = ['日','月','火','水','木','金','土'];
-  return days[new Date(dateStr).getDay()] + '曜日';
-}
+function saveIds(ids) { localStorage.setItem(IDS_KEY, JSON.stringify(ids)); }
+function genId() { return 'memo_' + Date.now(); }
 
 // ─── 自動保存 ─────────────────────────────────────────────
 function scheduleAutoSave() {
   document.getElementById('save-indicator').textContent = '○ 保存中...';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    localStorage.setItem(slotKey(currentSlot), JSON.stringify(collectData()));
+    saveCurrentMemo();
     document.getElementById('save-indicator').textContent = '● 保存済み';
-    updateSlotButtons();
+    updateCurrentLabel();
   }, 600);
+}
+
+function saveCurrentMemo() {
+  if (!currentId) return;
+  const d = collectData();
+  localStorage.setItem(DATA_KEY(currentId), JSON.stringify(d));
+  const ids = getIds();
+  if (!ids.includes(currentId)) {
+    if (ids.length >= MAX_MEMOS) {
+      showToast('⚠️ 上限20件です。古いメモを削除してください');
+      return;
+    }
+    ids.push(currentId);
+    saveIds(ids);
+  }
+}
+
+// ─── 新規メモ作成 ─────────────────────────────────────────
+function createNewMemo() {
+  const ids = getIds();
+  if (ids.length >= MAX_MEMOS) {
+    showToast('⚠️ 上限20件です。一覧から不要なメモを削除してください');
+    return;
+  }
+  // 現在のメモを保存
+  saveCurrentMemo();
+  // 新しいIDで空フォームを開く
+  currentId = genId();
+  clearForm();
+  updateCurrentLabel();
+  showToast('新規メモを作成しました');
+}
+
+// ─── メモ切り替え ─────────────────────────────────────────
+function switchMemo(id) {
+  saveCurrentMemo();
+  currentId = id;
+  const ids = getIds();
+  if (!ids.includes(id)) { ids.push(id); saveIds(ids); }
+  clearForm();
+  try {
+    const saved = localStorage.getItem(DATA_KEY(id));
+    if (saved) loadData(JSON.parse(saved));
+  } catch {}
+  updateCurrentLabel();
+  closeList();
+  showToast('メモを切り替えました');
+}
+
+// ─── メモ削除 ─────────────────────────────────────────────
+function deleteMemo(id, e) {
+  e.stopPropagation();
+  const ids = getIds();
+  const name = getMemoName(id);
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  localStorage.removeItem(DATA_KEY(id));
+  const newIds = ids.filter(i => i !== id);
+  saveIds(newIds);
+  if (id === currentId) {
+    // 別のメモに切り替えるか新規
+    if (newIds.length > 0) {
+      currentId = newIds[newIds.length - 1];
+      clearForm();
+      try {
+        const saved = localStorage.getItem(DATA_KEY(currentId));
+        if (saved) loadData(JSON.parse(saved));
+      } catch {}
+    } else {
+      currentId = genId();
+      clearForm();
+    }
+    updateCurrentLabel();
+  }
+  renderMemoList();
+  showToast('削除しました');
+}
+
+function getMemoName(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_KEY(id)));
+    return d?.storeName || '（店名未入力）';
+  } catch { return '（不明）'; }
+}
+
+function getMemoMeta(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_KEY(id)));
+    const parts = [];
+    if (d?.visitDate) parts.push(d.visitDate.replace(/-/g, '/'));
+    if (d?.genre) parts.push(d.genre);
+    return parts.join(' ・ ') || '未入力';
+  } catch { return ''; }
+}
+
+// ─── 一覧モーダル ─────────────────────────────────────────
+function openList() {
+  renderMemoList();
+  document.getElementById('list-modal').classList.add('open');
+}
+function closeList() {
+  document.getElementById('list-modal').classList.remove('open');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('list-modal')) closeList();
+}
+
+function renderMemoList() {
+  const ids = getIds();
+  const body = document.getElementById('memo-list-body');
+  if (ids.length === 0) {
+    body.innerHTML = '<p class="memo-list-empty">保存済みのメモはありません</p>';
+    return;
+  }
+  body.innerHTML = ids.slice().reverse().map(id => `
+    <div class="memo-list-item ${id === currentId ? 'active-item' : ''}" onclick="switchMemo('${id}')">
+      <div class="memo-item-info">
+        <div class="memo-item-name">${escHtml(getMemoName(id))}${id === currentId ? ' ✏️' : ''}</div>
+        <div class="memo-item-meta">${escHtml(getMemoMeta(id))}</div>
+      </div>
+      <button class="btn-delete-item" onclick="deleteMemo('${id}', event)">削除</button>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── 現在のラベル更新 ─────────────────────────────────────
+function updateCurrentLabel() {
+  const d = collectData();
+  const name = d.storeName || '新規メモ';
+  const ids = getIds();
+  const total = ids.length;
+  document.getElementById('current-memo-label').textContent =
+    `✏️ ${name}（全${total}件）`;
+}
+
+// ─── フォームクリア ───────────────────────────────────────
+function clearForm() {
+  document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => { el.value = ''; });
+  document.querySelectorAll('input[type=radio]').forEach(el => { el.checked = false; });
+  document.getElementById('order-items').innerHTML = '';
+  addOrderItem();
+  document.getElementById('visit-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('genre').value = 'グルメ';
+  document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; });
+}
+
+// ─── 現在のメモをクリア ───────────────────────────────────
+function clearCurrent() {
+  if (!confirm('現在のメモの入力内容をクリアしますか？\n（一覧からは削除されません）')) return;
+  clearForm();
+  scheduleAutoSave();
+  showToast('クリアしました');
 }
 
 // ─── データ収集 ───────────────────────────────────────────
@@ -599,7 +812,6 @@ function loadData(d) {
   set('url-twitter', d.urlTwitter);
   set('url-tabelog', d.urlTabelog);
   set('other', d.other);
-
   if (d.orderItems?.length) {
     document.getElementById('order-items').innerHTML = '';
     d.orderItems.forEach(i => addOrderItem(i.name, i.price));
@@ -612,8 +824,8 @@ function addOrderItem(name = '', price = '') {
   const div = document.createElement('div');
   div.className = 'order-item';
   div.innerHTML = `
-    <input type="text" placeholder="メニュー名" value="${name}" oninput="scheduleAutoSave()">
-    <input type="text" placeholder="金額" value="${price}" oninput="scheduleAutoSave()">
+    <input type="text" placeholder="メニュー名" value="${escHtml(name)}" oninput="scheduleAutoSave()">
+    <input type="text" placeholder="金額" value="${escHtml(price)}" oninput="scheduleAutoSave()">
     <button class="btn-remove" onclick="removeOrderItem(this)">×</button>`;
   document.getElementById('order-items').appendChild(div);
 }
@@ -630,19 +842,17 @@ function autoResize(el) {
 }
 
 // ─── テキスト生成（memo.txt 形式） ───────────────────────
+function dayOfWeek(dateStr) {
+  if (!dateStr) return '';
+  const days = ['日','月','火','水','木','金','土'];
+  return days[new Date(dateStr).getDay()] + '曜日';
+}
+
 function buildMemoText(d) {
   const dateStr = d.visitDate
-    ? (() => {
-        const [y, m, day] = d.visitDate.split('-');
-        return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`;
-      })()
+    ? (() => { const [y, m, day] = d.visitDate.split('-'); return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`; })()
     : '';
-
-  const orderLines = (d.orderItems || [])
-    .filter(i => i.name)
-    .map(i => `  - ${i.name}${i.price ? '　' + i.price : ''}`)
-    .join('\n') || '  - ';
-
+  const orderLines = (d.orderItems || []).filter(i => i.name).map(i => `  - ${i.name}${i.price ? '　' + i.price : ''}`).join('\n') || '  - ';
   return `ジャンル: ${d.genre || ''}
 訪問日: ${dateStr}
 店名: ${d.storeName || ''}
@@ -726,45 +936,36 @@ ${d.other || ''}`;
 // ─── コピー ──────────────────────────────────────────────
 async function copyMemo() {
   const text = buildMemoText(collectData());
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
     const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
   }
   showToast('✅ コピーしました！');
-}
-
-// ─── クリア ──────────────────────────────────────────────
-function clearAll() {
-  if (!confirm('スロット' + currentSlot + 'の入力内容をクリアしますか？')) return;
-  localStorage.removeItem(slotKey(currentSlot));
-  clearForm();
-  updateSlotButtons();
-  showToast('スロット' + currentSlot + ' をクリアしました');
 }
 
 // ─── トースト ────────────────────────────────────────────
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 // ─── 初期化 ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // 保存データ復元（スロット1）
-  try {
-    const saved = localStorage.getItem(slotKey(currentSlot));
-    if (saved) loadData(JSON.parse(saved));
-  } catch {}
-  updateSlotButtons();
+  const ids = getIds();
+  if (ids.length > 0) {
+    // 最後に保存したメモを開く
+    currentId = ids[ids.length - 1];
+    try {
+      const saved = localStorage.getItem(DATA_KEY(currentId));
+      if (saved) loadData(JSON.parse(saved));
+    } catch {}
+  } else {
+    currentId = genId();
+  }
+  updateCurrentLabel();
 
   // 自動保存イベント
   document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => {
@@ -781,9 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 今日の日付をデフォルト設定
   const dateEl = document.getElementById('visit-date');
-  if (!dateEl.value) {
-    dateEl.value = new Date().toISOString().split('T')[0];
-  }
+  if (!dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
 });
 </script>
 </body>
