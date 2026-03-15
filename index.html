@@ -32,6 +32,15 @@
     }
     header h1 { font-size: 18px; font-weight: bold; }
     #save-indicator { font-size: 12px; opacity: 0.85; }
+    .btn-settings {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      opacity: 0.85;
+    }
 
     /* ── メモ一覧バー ── */
     .memo-bar {
@@ -76,6 +85,37 @@
       cursor: pointer;
       white-space: nowrap;
     }
+    .btn-cloud {
+      background: #1565c0;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-cloud:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .settings-field { margin-bottom: 16px; }
+    .settings-field label { display: block; font-size: 13px; color: #555; font-weight: bold; margin-bottom: 6px; }
+    .settings-field input {
+      width: 100%; border: 1.5px solid #ddd; border-radius: 8px;
+      padding: 10px 12px; font-size: 15px; font-family: inherit;
+      background: #fafafa;
+    }
+    .settings-field input:focus { outline: none; border-color: #2c6e49; background: white; }
+    .settings-note { font-size: 12px; color: #888; margin-top: 6px; }
+    .btn-save-settings {
+      width: 100%; background: #2c6e49; color: white; border: none;
+      border-radius: 10px; padding: 14px; font-size: 16px; font-weight: bold;
+      font-family: inherit; cursor: pointer; margin-top: 8px;
+    }
+    .token-status { font-size: 13px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; }
+    .token-status.set { background: #e8f5e9; color: #2e7d32; }
+    .token-status.notset { background: #fff3e0; color: #e65100; }
 
     /* ── モーダル ── */
     .modal-overlay {
@@ -333,16 +373,42 @@
 
 <header>
   <h1>📝 やすじゅんメモ</h1>
-  <span id="save-indicator">● 保存済み</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="save-indicator">● 保存済み</span>
+    <button class="btn-settings" onclick="openSettings()" title="設定">⚙️</button>
+  </div>
 </header>
 
 <div class="memo-bar">
   <span id="current-memo-label">新規メモ</span>
+  <button class="btn-cloud" id="btn-cloud" onclick="saveToGist()">☁️ 保存</button>
   <button class="btn-list" onclick="openList()">📋 一覧</button>
   <button class="btn-new" onclick="createNewMemo()">＋ 新規</button>
 </div>
 
 <div id="toast"></div>
+
+<!-- 設定モーダル -->
+<div class="modal-overlay" id="settings-modal" onclick="handleSettingsOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>⚙️ 設定</span>
+      <button class="btn-modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <div id="token-status-display"></div>
+      <div class="settings-field">
+        <label>GitHub Personal Access Token</label>
+        <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        <p class="settings-note">github.com → Settings → Developer settings → Personal access tokens → Tokens (classic) で発行。スコープは「gist」のみでOK。</p>
+      </div>
+      <button class="btn-save-settings" onclick="saveToken()">保存する</button>
+      <div style="margin-top:12px;text-align:center;">
+        <button onclick="clearToken()" style="background:none;border:none;color:#c62828;font-size:13px;cursor:pointer;">トークンを削除する</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- メモ一覧モーダル -->
 <div class="modal-overlay" id="list-modal" onclick="handleOverlayClick(event)">
@@ -943,6 +1009,92 @@ async function copyMemo() {
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
   }
   showToast('✅ コピーしました！');
+}
+
+// ─── 設定モーダル ─────────────────────────────────────────
+function openSettings() {
+  const token = localStorage.getItem('github_token') || '';
+  const statusEl = document.getElementById('token-status-display');
+  if (token) {
+    statusEl.innerHTML = '<div class="token-status set">✅ トークン設定済み</div>';
+    document.getElementById('token-input').value = '';
+    document.getElementById('token-input').placeholder = '変更する場合のみ入力';
+  } else {
+    statusEl.innerHTML = '<div class="token-status notset">⚠️ トークン未設定（☁️ 保存を使うには設定が必要です）</div>';
+    document.getElementById('token-input').value = '';
+    document.getElementById('token-input').placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
+  }
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+function handleSettingsOverlayClick(e) {
+  if (e.target === document.getElementById('settings-modal')) closeSettings();
+}
+function saveToken() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) { showToast('トークンを入力してください'); return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    showToast('⚠️ トークンの形式が正しくありません'); return;
+  }
+  localStorage.setItem('github_token', token);
+  closeSettings();
+  showToast('✅ トークンを保存しました');
+}
+function clearToken() {
+  if (!confirm('トークンを削除しますか？')) return;
+  localStorage.removeItem('github_token');
+  closeSettings();
+  showToast('トークンを削除しました');
+}
+
+// ─── GitHub Gist 保存 ────────────────────────────────────
+async function saveToGist() {
+  const token = localStorage.getItem('github_token');
+  if (!token) { openSettings(); showToast('⚠️ 先にトークンを設定してください'); return; }
+
+  const btn = document.getElementById('btn-cloud');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const d = collectData();
+    const memoText = buildMemoText(d);
+    const storeName = d.storeName || '店名未入力';
+    const visitDate = d.visitDate ? d.visitDate.replace(/-/g, '') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const fileName = `${visitDate}_${storeName}.txt`;
+    const description = `やすじゅんメモ: ${storeName} (${visitDate})`;
+
+    const existingGistId = localStorage.getItem('gist_id_' + currentId);
+    let url, method;
+    if (existingGistId) {
+      url = `https://api.github.com/gists/${existingGistId}`;
+      method = 'PATCH';
+    } else {
+      url = 'https://api.github.com/gists';
+      method = 'POST';
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, public: false, files: { [fileName]: { content: memoText } } })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    localStorage.setItem('gist_id_' + currentId, data.id);
+    showToast('☁️ Gistに保存しました！');
+  } catch(e) {
+    showToast('❌ 保存失敗: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☁️ 保存';
+  }
 }
 
 // ─── トースト ────────────────────────────────────────────
