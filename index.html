@@ -1931,9 +1931,8 @@ async function saveToGist() {
         btn.textContent = `写真(${i}/${unuploaded.length})...`;
         const p = unuploaded[i];
         try {
-          const seqStr = String(p.seq).padStart(2, '0');
-          const scopeName = p.scope === 'general' ? 'photo' : p.scope.replace('spot_', 'spot');
-          const fname = `${scopeName}_${seqStr}.jpg`;
+          // 元のファイル名を使用。未保存の場合はフォールバック
+          const fname = p.fileName || (String(p.seq).padStart(2, '0') + '.jpg');
           const fpath = `${folder}/${fname}`;
           const b64   = await blobToBase64(p.blob);
 
@@ -2120,7 +2119,10 @@ async function handlePhotoFiles(files, scope, container) {
     const existing = (await dbGetAll()).filter(p => p.memoId === currentId && p.scope === scope);
     const seq = existing.length;
     const key = `${currentId}:${scope}:${seq}`;
-    await dbPut({ key, memoId: currentId, scope, seq, blob, uploadedPath: null });
+    // 元のファイル名を保持（スペース等を _ に置換、拡張子はjpgに統一）
+    const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|\s]/g, '_');
+    const fileName = baseName + '.jpg';
+    await dbPut({ key, memoId: currentId, scope, seq, blob, fileName, uploadedPath: null });
     const url = URL.createObjectURL(blob);
     renderPhotoThumb(container, key, url, false);
   }
