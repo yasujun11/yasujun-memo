@@ -367,6 +367,36 @@
       margin-top: 10px;
       display: block;
     }
+
+    /* ── スポットカード（まとめ記事用） ── */
+    .spot-card {
+      border: 1.5px solid #c8e6c9;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #f8fdf9;
+    }
+    .spot-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .spot-card-header select {
+      flex: 0 0 auto;
+      width: auto;
+      font-size: 14px;
+      padding: 6px 28px 6px 10px;
+    }
+    .spot-card-header .spot-num {
+      flex: 1;
+      font-size: 13px;
+      font-weight: bold;
+      color: #2c6e49;
+    }
+    .spot-card input[type="text"],
+    .spot-card textarea { margin-bottom: 8px; }
+    .spot-card textarea { min-height: 60px; }
   </style>
 </head>
 <body>
@@ -429,7 +459,8 @@
       <label>ジャンル</label>
       <select id="genre" onchange="onGenreChange()">
         <option value="グルメ">グルメ</option>
-        <option value="おでかけ">おでかけ</option>
+        <option value="おでかけ">おでかけ（個別）</option>
+        <option value="おでかけ（まとめ）">おでかけ（まとめ）</option>
         <option value="ウルトラウォーキング">ウルトラウォーキング</option>
         <option value="サンフレッチェ広島">サンフレッチェ広島</option>
         <option value="FUNKY MONKEY BΛBY'S">FUNKY MONKEY BΛBY'S</option>
@@ -672,6 +703,117 @@
   </div>
 </div>
 
+<!-- ■ まとめ記事：基本情報補足（まとめ時のみ） -->
+<div class="section" id="section-matome-basic" style="display:none">
+  <div class="section-header">■ まとめ記事：基本情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>旅行終了日（複数日の場合）</label>
+      <input type="date" id="matome-end-date" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>旅のテーマ・キャッチ</label>
+      <input type="text" id="matome-theme" placeholder="例: マイルで行く冬の北海道 / 子連れで楽しむ千葉日帰り" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>同行者</label>
+      <input type="text" id="matome-companion" placeholder="例: 家族4人（妻・長女8歳・次女1歳）" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>この記事の見どころ（3点）</label>
+      <textarea id="matome-highlights" placeholder="・〇〇を実体験したリアルレポ&#10;・費用総額〇〇円の内訳公開&#10;・子連れで安心な〇〇のポイント" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ まとめ記事：タイムスケジュール（任意） -->
+<div class="section" id="section-matome-schedule" style="display:none">
+  <div class="section-header">■ タイムスケジュール（任意）</div>
+  <div class="section-body">
+    <div class="field">
+      <p style="font-size:12px;color:#888;margin-bottom:8px;">複数日程や移動が多い場合のみ。日帰り・シンプルな旅は省略でOKです。</p>
+      <textarea id="matome-schedule" placeholder="【1日目】〇月〇日（〇曜日）&#10;  10:00 成田ゆめ牧場 着&#10;  12:00 ランチ&#10;  15:00 帰宅" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ まとめ記事：スポット一覧 -->
+<div class="section" id="section-matome-spots" style="display:none">
+  <div class="section-header">■ 旅程（訪問スポット一覧）</div>
+  <div class="section-body">
+    <p style="font-size:12px;color:#888;margin-bottom:12px;">個別記事IDは後から記入でもOKです（空欄のまま保存してください）。</p>
+    <div id="spot-items"></div>
+    <button class="btn-add-item" onclick="addSpotItem()">＋ スポット追加</button>
+  </div>
+</div>
+
+<!-- ■ まとめ記事：費用まとめ -->
+<div class="section" id="section-matome-cost" style="display:none">
+  <div class="section-header">■ 費用まとめ</div>
+  <div class="section-body">
+    <div class="field">
+      <label>交通費</label>
+      <input type="text" id="cost-transport" placeholder="例: 高速代2,000円＋ガソリン代1,500円" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>入場料・体験費</label>
+      <input type="text" id="cost-entry" placeholder="例: 大人1,500円×2＋子供800円×2" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>食費</label>
+      <input type="text" id="cost-food" placeholder="例: ランチ3,200円＋ソフトクリーム800円" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>宿泊費</label>
+      <input type="text" id="cost-hotel" placeholder="例: 1泊18,000円 / 日帰りはなし" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>その他</label>
+      <input type="text" id="cost-other" placeholder="例: お土産2,000円" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>合計（目安）</label>
+      <input type="text" id="cost-total" placeholder="例: 約12,000円（4人家族）" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>節約ポイント</label>
+      <input type="text" id="cost-saving" placeholder="例: マイル使用・子供無料・クーポン利用" oninput="scheduleAutoSave()">
+    </div>
+  </div>
+</div>
+
+<!-- ■ まとめ記事：まとめ・感想 -->
+<div class="section" id="section-matome-summary" style="display:none">
+  <div class="section-header">■ まとめ・感想</div>
+  <div class="section-body">
+    <div class="field">
+      <label>全体の感想</label>
+      <textarea id="matome-all-summary" placeholder="旅全体を振り返って。一番よかったこと・失敗談・次回行きたいスポットなど" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>おすすめポイント（3点）</label>
+      <textarea id="matome-recommend" placeholder="・〇〇&#10;・〇〇&#10;・〇〇" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>読者へのひと言</label>
+      <textarea id="matome-closing" placeholder="〇〇を考えている方にぜひ伝えたいこと" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>宿泊アフィリエイト（宿泊ありの場合）</label>
+      <div class="radio-group">
+        <label><input type="radio" name="matome-af" value="なし"> なし</label>
+        <label><input type="radio" name="matome-af" value="じゃらん"> じゃらん</label>
+        <label><input type="radio" name="matome-af" value="楽天トラベル"> 楽天トラベル</label>
+        <label><input type="radio" name="matome-af" value="Yahoo!トラベル"> Yahoo!</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>宿泊ホテル名（任意）</label>
+      <input type="text" id="matome-hotel" placeholder="例: ホテルニューオータニ" oninput="scheduleAutoSave()">
+    </div>
+  </div>
+</div>
+
 <!-- ■ お店の概要 -->
 <div class="section" id="section-store-overview">
   <div class="section-header">■ お店の概要</div>
@@ -742,7 +884,7 @@
 </div>
 
 <!-- ■ まとめ -->
-<div class="section">
+<div class="section" id="section-common-summary">
   <div class="section-header">■ まとめ・感想</div>
   <div class="section-body">
     <div class="field">
@@ -795,7 +937,7 @@
 </div>
 
 <!-- ■ その他メモ -->
-<div class="section">
+<div class="section" id="section-other">
   <div class="section-header">■ その他メモ</div>
   <div class="section-body">
     <div class="field">
@@ -975,13 +1117,26 @@ function updateCurrentLabel() {
 function onGenreChange() {
   const genre = document.getElementById('genre').value;
   const isOdekake = genre === 'おでかけ';
-  const isGourmet = !isOdekake;
+  const isMatome = genre === 'おでかけ（まとめ）';
+  const isGourmet = !isOdekake && !isMatome;
 
+  // グルメ専用セクション
   ['section-store-overview', 'section-review', 'section-shop-info'].forEach(id => {
     document.getElementById(id).style.display = isGourmet ? '' : 'none';
   });
+
+  // 共通セクション（まとめ時は専用のものを使うので非表示）
+  document.getElementById('section-common-summary').style.display = isMatome ? 'none' : '';
+
+  // おでかけ個別専用セクション
   document.getElementById('section-odekake-pattern').style.display = isOdekake ? '' : 'none';
   document.getElementById('section-odekake-faq').style.display = isOdekake ? '' : 'none';
+
+  // おでかけまとめ専用セクション
+  ['section-matome-basic','section-matome-schedule','section-matome-spots',
+   'section-matome-cost','section-matome-summary'].forEach(id => {
+    document.getElementById(id).style.display = isMatome ? '' : 'none';
+  });
 
   if (isOdekake) {
     onOdekakePatternChange();
@@ -990,6 +1145,11 @@ function onGenreChange() {
      'section-movie-review','section-movie-goods','section-odekake-info'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
+  }
+
+  // まとめ時：スポットが0件なら1件追加
+  if (isMatome && document.getElementById('spot-items').children.length === 0) {
+    addSpotItem();
   }
 }
 
@@ -1052,6 +1212,7 @@ function clearForm() {
   document.querySelectorAll('input[type=radio]').forEach(el => { el.checked = false; });
   document.getElementById('order-items').innerHTML = '';
   addOrderItem();
+  document.getElementById('spot-items').innerHTML = '';
   document.getElementById('visit-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('genre').value = 'グルメ';
   document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; });
@@ -1139,6 +1300,37 @@ function collectData() {
     movieReview2:         document.getElementById('movie-review2').value,
     movieGoods:           document.getElementById('movie-goods').value,
     movieStreaming:        document.getElementById('movie-streaming').value,
+    // おでかけまとめ専用
+    matomeEndDate:        document.getElementById('matome-end-date').value,
+    matomeTheme:          document.getElementById('matome-theme').value,
+    matomeCompanion:      document.getElementById('matome-companion').value,
+    matomeHighlights:     document.getElementById('matome-highlights').value,
+    matomeSchedule:       document.getElementById('matome-schedule').value,
+    matomeSpots:          (() => {
+      const spots = [];
+      document.querySelectorAll('#spot-items .spot-card').forEach(card => {
+        spots.push({
+          type:           card.querySelector('.spot-type').value,
+          name:           card.querySelector('.spot-name').value,
+          memo:           card.querySelector('.spot-memo').value,
+          articleId:      card.querySelector('.spot-article-id').value,
+          articleComment: card.querySelector('.spot-article-comment').value,
+        });
+      });
+      return spots;
+    })(),
+    costTransport:        document.getElementById('cost-transport').value,
+    costEntry:            document.getElementById('cost-entry').value,
+    costFood:             document.getElementById('cost-food').value,
+    costHotel:            document.getElementById('cost-hotel').value,
+    costOther:            document.getElementById('cost-other').value,
+    costTotal:            document.getElementById('cost-total').value,
+    costSaving:           document.getElementById('cost-saving').value,
+    matomeAllSummary:     document.getElementById('matome-all-summary').value,
+    matomeRecommend:      document.getElementById('matome-recommend').value,
+    matomeClosing:        document.getElementById('matome-closing').value,
+    matomeAf:             document.querySelector('input[name="matome-af"]:checked')?.value || 'なし',
+    matomeHotel:          document.getElementById('matome-hotel').value,
   };
 }
 
@@ -1209,6 +1401,29 @@ function loadData(d) {
   set('movie-review2', d.movieReview2);
   set('movie-goods', d.movieGoods);
   set('movie-streaming', d.movieStreaming);
+  // おでかけまとめ専用
+  set('matome-end-date', d.matomeEndDate);
+  set('matome-theme', d.matomeTheme);
+  set('matome-companion', d.matomeCompanion);
+  set('matome-highlights', d.matomeHighlights);
+  set('matome-schedule', d.matomeSchedule);
+  set('cost-transport', d.costTransport);
+  set('cost-entry', d.costEntry);
+  set('cost-food', d.costFood);
+  set('cost-hotel', d.costHotel);
+  set('cost-other', d.costOther);
+  set('cost-total', d.costTotal);
+  set('cost-saving', d.costSaving);
+  set('matome-all-summary', d.matomeAllSummary);
+  set('matome-recommend', d.matomeRecommend);
+  set('matome-closing', d.matomeClosing);
+  if (d.matomeAf) { const r = document.querySelector(`input[name="matome-af"][value="${d.matomeAf}"]`); if (r) r.checked = true; }
+  set('matome-hotel', d.matomeHotel);
+  // スポット一覧
+  if (d.matomeSpots?.length) {
+    document.getElementById('spot-items').innerHTML = '';
+    d.matomeSpots.forEach(s => addSpotItem(s));
+  }
   // セクション表示を更新
   onGenreChange();
   if (d.orderItems?.length) {
@@ -1234,6 +1449,38 @@ function removeOrderItem(btn) {
   if (c.children.length > 1) { btn.parentElement.remove(); scheduleAutoSave(); }
 }
 
+// ─── スポットアイテム（まとめ記事用） ─────────────────────
+let spotCounter = 0;
+function addSpotItem(data = {}) {
+  spotCounter++;
+  const num = document.getElementById('spot-items').children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'spot-card';
+  div.innerHTML = `
+    <div class="spot-card-header">
+      <select class="spot-type" onchange="scheduleAutoSave()">
+        <option value="おでかけ"${data.type==='おでかけ'||!data.type?' selected':''}>おでかけ</option>
+        <option value="グルメ"${data.type==='グルメ'?' selected':''}>グルメ</option>
+        <option value="ホテル・宿"${data.type==='ホテル・宿'?' selected':''}>ホテル・宿</option>
+      </select>
+      <span class="spot-num">スポット${num}</span>
+      <button class="btn-remove" onclick="removeSpotItem(this)">×</button>
+    </div>
+    <input type="text" class="spot-name" placeholder="場所名・店名" value="${escHtml(data.name||'')}" oninput="scheduleAutoSave()">
+    <textarea class="spot-memo" placeholder="一言メモ（まとめ記事内の紹介文の素材）" oninput="scheduleAutoSave()">${escHtml(data.memo||'')}</textarea>
+    <input type="text" class="spot-article-id" placeholder="個別記事ID（後で入力OK・空欄でもOK）" value="${escHtml(data.articleId||'')}" oninput="scheduleAutoSave()">
+    <input type="text" class="spot-article-comment" placeholder="リンクのコメント（例: 実食レビューはこちら！）" value="${escHtml(data.articleComment||'')}" oninput="scheduleAutoSave()">
+  `;
+  document.getElementById('spot-items').appendChild(div);
+  div.querySelectorAll('textarea').forEach(el => { el.addEventListener('input', () => autoResize(el)); autoResize(el); });
+  scheduleAutoSave();
+}
+
+function removeSpotItem(btn) {
+  const c = document.getElementById('spot-items');
+  if (c.children.length > 1) { btn.closest('.spot-card').remove(); scheduleAutoSave(); }
+}
+
 // ─── textarea 自動リサイズ ────────────────────────────────
 function autoResize(el) {
   el.style.height = 'auto';
@@ -1248,6 +1495,7 @@ function dayOfWeek(dateStr) {
 }
 
 function buildMemoText(d) {
+  if (d.genre === 'おでかけ（まとめ）') return buildMatomeOdekakeMemoText(d);
   if (d.genre === 'おでかけ') return buildOdekakeMemoText(d);
   const dateStr = d.visitDate
     ? (() => { const [y, m, day] = d.visitDate.split('-'); return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`; })()
@@ -1412,6 +1660,63 @@ function buildOdekakeMemoText(d) {
   }
 
   text += `\n========================================\n■ FAQ・よくある質問メモ\n========================================\n${d.odekakedFaq || ''}\n`;
+  text += `\n========================================\n■ その他メモ\n========================================\n${d.other || ''}`;
+  return text;
+}
+
+// ─── おでかけまとめ テキスト生成 ─────────────────────────
+function buildMatomeOdekakeMemoText(d) {
+  const fmt = dateStr => {
+    if (!dateStr) return '';
+    const [y, m, day] = dateStr.split('-');
+    return `${y}年${m}月${day}日（${dayOfWeek(dateStr)}）`;
+  };
+  const startStr = fmt(d.visitDate);
+  const endStr = d.matomeEndDate ? `〜${fmt(d.matomeEndDate).replace(/^\d+年/, '')}` : '';
+  const dateStr = startStr + endStr;
+
+  let text = `ジャンル: おでかけ（まとめ）\n`;
+  text += `旅行日: ${dateStr}\n`;
+  text += `エリア: ${d.area || ''}\n`;
+  text += `同行者: ${d.matomeCompanion || ''}\n`;
+  text += `旅のテーマ: ${d.matomeTheme || ''}\n`;
+
+  text += `\n========================================\n■ イントロ\n========================================\n\n`;
+  text += `【旅のきっかけ・エピソード】\n${d.introReason || ''}\n\n`;
+  text += `【個人的なエピソード・特別な事情】\n${d.introEpisode || ''}\n\n`;
+  text += `【この記事の見どころ（3点）】\n${d.matomeHighlights || ''}\n\n`;
+  text += `【関連記事】\nイントロ直後に紹介する記事:\n  記事ID: ${d.relatedIntroId || ''}\n  コメント: ${d.relatedIntroComment || ''}\nまとめ後に紹介する記事:\n  記事ID: ${d.relatedSummaryId || ''}\n  コメント: ${d.relatedSummaryComment || ''}\n\n`;
+  text += `【X（Twitter）投稿】\nURL: ${d.xUrl || ''}\n`;
+
+  if (d.matomeSchedule) {
+    text += `\n========================================\n■ タイムスケジュール\n========================================\n${d.matomeSchedule}\n`;
+  }
+
+  text += `\n========================================\n■ 旅程（訪問スポット一覧）\n========================================\n`;
+  (d.matomeSpots || []).forEach((s, i) => {
+    text += `\n--- スポット${i + 1} ---\n`;
+    text += `種類: ${s.type || ''}\n`;
+    text += `名前: ${s.name || ''}\n`;
+    text += `一言メモ: ${s.memo || ''}\n`;
+    text += `個別記事ID: ${s.articleId || ''}\n`;
+    text += `個別記事リンクのコメントテキスト: ${s.articleComment || ''}\n`;
+  });
+
+  text += `\n========================================\n■ 費用まとめ\n========================================\n`;
+  text += `交通費: ${d.costTransport || ''}\n`;
+  text += `入場料・体験費: ${d.costEntry || ''}\n`;
+  text += `食費: ${d.costFood || ''}\n`;
+  text += `宿泊費: ${d.costHotel || ''}\n`;
+  text += `その他: ${d.costOther || ''}\n`;
+  text += `合計（目安）: ${d.costTotal || ''}\n`;
+  text += `節約ポイント: ${d.costSaving || ''}\n`;
+
+  text += `\n========================================\n■ まとめ・感想\n========================================\n\n`;
+  text += `【全体の感想】\n${d.matomeAllSummary || ''}\n\n`;
+  text += `【おすすめポイント（3点）】\n${d.matomeRecommend || ''}\n\n`;
+  text += `【読者へのひと言】\n${d.matomeClosing || ''}\n\n`;
+  text += `【宿泊アフィリエイト】\n使用するリンク: ${d.matomeAf || 'なし'}\n宿泊したホテル名: ${d.matomeHotel || ''}\n`;
+
   text += `\n========================================\n■ その他メモ\n========================================\n${d.other || ''}`;
   return text;
 }
