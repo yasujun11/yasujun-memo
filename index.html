@@ -368,6 +368,72 @@
       display: block;
     }
 
+    /* ── 写真UI ── */
+    .btn-photo-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0f9f3;
+      color: #2c6e49;
+      border: 1.5px dashed #2c6e49;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: inherit;
+    }
+    .photo-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      min-height: 0;
+    }
+    .photo-thumb {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #eee;
+      flex-shrink: 0;
+    }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .btn-photo-delete {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(0,0,0,0.65);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding: 0;
+    }
+    .photo-upload-badge {
+      position: absolute;
+      bottom: 2px;
+      left: 3px;
+      font-size: 11px;
+      background: rgba(0,0,0,0.45);
+      color: white;
+      border-radius: 4px;
+      padding: 0 3px;
+    }
+    .spot-photo-area {
+      border-top: 1px solid #d4edd9;
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+
     /* ── スポットカード（まとめ記事用） ── */
     .spot-card {
       border: 1.5px solid #c8e6c9;
@@ -430,7 +496,15 @@
       <div class="settings-field">
         <label>GitHub Personal Access Token</label>
         <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-        <p class="settings-note">github.com → Settings → Developer settings → Personal access tokens → Tokens (classic) で発行。スコープは「gist」のみでOK。</p>
+        <p class="settings-note">github.com → Settings → Developer settings → Personal access tokens → Tokens (classic) で発行。スコープは「<strong>repo</strong>」を選択してください（写真アップロードに必要）。</p>
+      </div>
+      <div class="settings-field">
+        <label>GitHub ユーザー名（写真アップロード先）</label>
+        <input type="text" id="gh-owner-input" placeholder="例: yasujun11">
+      </div>
+      <div class="settings-field">
+        <label>GitHub リポジトリ名（写真アップロード先）</label>
+        <input type="text" id="gh-repo-input" placeholder="例: yasujun-memo">
       </div>
       <button class="btn-save-settings" onclick="saveToken()">保存する</button>
       <div style="margin-top:12px;text-align:center;">
@@ -936,6 +1010,16 @@
   </div>
 </div>
 
+<!-- ■ 写真 -->
+<div class="section" id="section-photos">
+  <div class="section-header">■ 写真</div>
+  <div class="section-body">
+    <p style="font-size:12px;color:#888;margin-bottom:10px;">☁️保存時にGitHubリポジトリへ自動アップロードされます。</p>
+    <button class="btn-photo-add" type="button" onclick="triggerPhotoInput('general')">📷 写真を追加</button>
+    <div class="photo-thumbs" id="photo-thumbs-general"></div>
+  </div>
+</div>
+
 <!-- ■ その他メモ -->
 <div class="section" id="section-other">
   <div class="section-header">■ その他メモ</div>
@@ -1213,6 +1297,12 @@ function clearForm() {
   document.getElementById('order-items').innerHTML = '';
   addOrderItem();
   document.getElementById('spot-items').innerHTML = '';
+  // 写真サムネイルをクリア（BlobURLを解放してメモリリーク防止）
+  const gt = document.getElementById('photo-thumbs-general');
+  if (gt) {
+    gt.querySelectorAll('img').forEach(img => { try { URL.revokeObjectURL(img.src); } catch {} });
+    gt.innerHTML = '';
+  }
   document.getElementById('visit-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('genre').value = 'グルメ';
   document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; });
@@ -1310,6 +1400,7 @@ function collectData() {
       const spots = [];
       document.querySelectorAll('#spot-items .spot-card').forEach(card => {
         spots.push({
+          spotId:         card.dataset.spotId || '',
           type:           card.querySelector('.spot-type').value,
           name:           card.querySelector('.spot-name').value,
           memo:           card.querySelector('.spot-memo').value,
@@ -1431,6 +1522,8 @@ function loadData(d) {
     d.orderItems.forEach(i => addOrderItem(i.name, i.price));
   }
   document.querySelectorAll('textarea').forEach(autoResize);
+  // 写真を読み込む（非同期・スポットカード描画後に実行）
+  openDB().then(() => loadPhotos(currentId)).catch(() => {});
 }
 
 // ─── 注文アイテム ─────────────────────────────────────────
@@ -1450,12 +1543,12 @@ function removeOrderItem(btn) {
 }
 
 // ─── スポットアイテム（まとめ記事用） ─────────────────────
-let spotCounter = 0;
 function addSpotItem(data = {}) {
-  spotCounter++;
+  const spotId = data.spotId || ('sp' + Date.now() + Math.floor(Math.random() * 1000));
   const num = document.getElementById('spot-items').children.length + 1;
   const div = document.createElement('div');
   div.className = 'spot-card';
+  div.dataset.spotId = spotId;
   div.innerHTML = `
     <div class="spot-card-header">
       <select class="spot-type" onchange="scheduleAutoSave()">
@@ -1470,6 +1563,10 @@ function addSpotItem(data = {}) {
     <textarea class="spot-memo" placeholder="一言メモ（まとめ記事内の紹介文の素材）" oninput="scheduleAutoSave()">${escHtml(data.memo||'')}</textarea>
     <input type="text" class="spot-article-id" placeholder="個別記事ID（後で入力OK・空欄でもOK）" value="${escHtml(data.articleId||'')}" oninput="scheduleAutoSave()">
     <input type="text" class="spot-article-comment" placeholder="リンクのコメント（例: 実食レビューはこちら！）" value="${escHtml(data.articleComment||'')}" oninput="scheduleAutoSave()">
+    <div class="spot-photo-area">
+      <button class="btn-photo-add" type="button" onclick="triggerSpotPhotoInput('${spotId}')">📷 写真追加</button>
+      <div class="photo-thumbs"></div>
+    </div>
   `;
   document.getElementById('spot-items').appendChild(div);
   div.querySelectorAll('textarea').forEach(el => { el.addEventListener('input', () => autoResize(el)); autoResize(el); });
@@ -1746,6 +1843,8 @@ function openSettings() {
     document.getElementById('token-input').value = '';
     document.getElementById('token-input').placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
   }
+  document.getElementById('gh-owner-input').value = localStorage.getItem('gh_owner') || 'yasujun11';
+  document.getElementById('gh-repo-input').value  = localStorage.getItem('gh_repo')  || 'yasujun-memo';
   document.getElementById('settings-modal').classList.add('open');
 }
 function closeSettings() {
@@ -1756,13 +1855,18 @@ function handleSettingsOverlayClick(e) {
 }
 function saveToken() {
   const token = document.getElementById('token-input').value.trim();
-  if (!token) { showToast('トークンを入力してください'); return; }
-  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-    showToast('⚠️ トークンの形式が正しくありません'); return;
+  const owner = document.getElementById('gh-owner-input').value.trim();
+  const repo  = document.getElementById('gh-repo-input').value.trim();
+  if (token) {
+    if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+      showToast('⚠️ トークンの形式が正しくありません'); return;
+    }
+    localStorage.setItem('github_token', token);
   }
-  localStorage.setItem('github_token', token);
+  if (owner) localStorage.setItem('gh_owner', owner);
+  if (repo)  localStorage.setItem('gh_repo',  repo);
   closeSettings();
-  showToast('✅ トークンを保存しました');
+  showToast('✅ 設定を保存しました');
 }
 function clearToken() {
   if (!confirm('トークンを削除しますか？')) return;
@@ -1810,7 +1914,61 @@ async function saveToGist() {
     }
     const data = await res.json();
     localStorage.setItem('gist_id_' + currentId, data.id);
-    showToast('☁️ Gistに保存しました！');
+
+    // 写真アップロード（GitHubリポジトリへ）
+    const owner  = localStorage.getItem('gh_owner') || 'yasujun11';
+    const repo   = localStorage.getItem('gh_repo')  || 'yasujun-memo';
+    const photos = await getAllPhotos(currentId);
+    const unuploaded = photos.filter(p => !p.uploadedPath);
+
+    if (unuploaded.length > 0) {
+      const safeStore = (d.storeName || '未入力').replace(/[\\/:*?"<>|]/g, '_');
+      const folder = `photos/${visitDate}_${safeStore}`;
+      let ok = 0;
+
+      for (let i = 0; i < unuploaded.length; i++) {
+        btn.textContent = `写真(${i}/${unuploaded.length})...`;
+        const p = unuploaded[i];
+        try {
+          const seqStr = String(p.seq).padStart(2, '0');
+          const scopeName = p.scope === 'general' ? 'photo' : p.scope.replace('spot_', 'spot');
+          const fname = `${scopeName}_${seqStr}.jpg`;
+          const fpath = `${folder}/${fname}`;
+          const b64   = await blobToBase64(p.blob);
+
+          // 既存ファイルのSHAを取得（更新時に必要）
+          let sha = null;
+          try {
+            const cr = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fpath}`,
+              { headers: { Authorization: `token ${token}` } });
+            if (cr.ok) sha = (await cr.json()).sha;
+          } catch {}
+
+          const body = { message: `memo photo: ${fname}`, content: b64 };
+          if (sha) body.sha = sha;
+
+          const pr = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${fpath}`, {
+            method: 'PUT',
+            headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+
+          if (pr.ok) {
+            ok++;
+            await dbPut({ ...p, blob: p.blob, uploadedPath: fpath });
+            const th = document.querySelector(`.photo-thumb[data-photo-key="${p.key}"]`);
+            if (th && !th.querySelector('.photo-upload-badge')) {
+              const b = document.createElement('span');
+              b.className = 'photo-upload-badge'; b.textContent = '☁️';
+              th.appendChild(b);
+            }
+          }
+        } catch {}
+      }
+      showToast(`☁️ Gist保存 + 写真${ok}/${unuploaded.length}枚アップロード完了！`);
+    } else {
+      showToast('☁️ Gistに保存しました！');
+    }
   } catch(e) {
     showToast('❌ 保存失敗: ' + e.message);
   } finally {
@@ -1824,6 +1982,164 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── IndexedDB（写真保存） ────────────────────────────────
+let db = null;
+const PHOTO_DB    = 'yasujun_photos';
+const PHOTO_STORE = 'photos';
+
+function openDB() {
+  if (db) return Promise.resolve(db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PHOTO_DB, 1);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore(PHOTO_STORE, { keyPath: 'key' });
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function dbPut(item) {
+  const d = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).put(item);
+    tx.oncomplete = resolve;
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function dbDelete(key) {
+  const d = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).delete(key);
+    tx.oncomplete = resolve;
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function dbGetAll() {
+  const d = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = d.transaction(PHOTO_STORE).objectStore(PHOTO_STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function getAllPhotos(memoId) {
+  const all = await dbGetAll();
+  return all.filter(p => p.memoId === memoId).sort((a, b) => a.seq - b.seq);
+}
+
+// ─── 写真圧縮 ─────────────────────────────────────────────
+async function compressImage(file, maxPx = 1568) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      c.toBlob(resolve, 'image/jpeg', 0.85);
+    };
+    img.src = url;
+  });
+}
+
+// ─── 写真 UI ──────────────────────────────────────────────
+function getPhotoContainer(scope) {
+  if (scope === 'general') return document.getElementById('photo-thumbs-general');
+  const m = scope.match(/^spot_(.+)$/);
+  if (m) {
+    const card = document.querySelector(`.spot-card[data-spot-id="${m[1]}"]`);
+    return card ? card.querySelector('.photo-thumbs') : null;
+  }
+  return null;
+}
+
+function renderPhotoThumb(container, key, blobUrl, uploaded) {
+  const div = document.createElement('div');
+  div.className = 'photo-thumb';
+  div.dataset.photoKey = key;
+  div.innerHTML = `
+    <img src="${blobUrl}" alt="写真">
+    <button class="btn-photo-delete" type="button" onclick="deletePhotoThumb('${escHtml(key)}', this.parentElement)" title="削除">×</button>
+    ${uploaded ? '<span class="photo-upload-badge">☁️</span>' : ''}`;
+  container.appendChild(div);
+}
+
+async function deletePhotoThumb(key, thumbEl) {
+  try { URL.revokeObjectURL(thumbEl.querySelector('img').src); } catch {}
+  thumbEl.remove();
+  await dbDelete(key).catch(() => {});
+  scheduleAutoSave();
+}
+
+function triggerPhotoInput(scope) {
+  const container = getPhotoContainer(scope);
+  if (!container) return;
+  const safeId = 'pfin-' + scope.replace(/[^a-zA-Z0-9_-]/g, '_');
+  let input = document.getElementById(safeId);
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = safeId;
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+  }
+  input.onchange = e => { handlePhotoFiles(e.target.files, scope, container); input.value = ''; };
+  input.click();
+}
+
+function triggerSpotPhotoInput(spotId) {
+  triggerPhotoInput('spot_' + spotId);
+}
+
+async function handlePhotoFiles(files, scope, container) {
+  for (const file of Array.from(files)) {
+    const blob = await compressImage(file);
+    const existing = (await dbGetAll()).filter(p => p.memoId === currentId && p.scope === scope);
+    const seq = existing.length;
+    const key = `${currentId}:${scope}:${seq}`;
+    await dbPut({ key, memoId: currentId, scope, seq, blob, uploadedPath: null });
+    const url = URL.createObjectURL(blob);
+    renderPhotoThumb(container, key, url, false);
+  }
+  scheduleAutoSave();
+}
+
+async function loadPhotos(memoId) {
+  try {
+    const photos = await getAllPhotos(memoId);
+    for (const p of photos) {
+      const container = getPhotoContainer(p.scope);
+      if (!container) continue;
+      const url = URL.createObjectURL(p.blob);
+      renderPhotoThumb(container, p.key, url, !!p.uploadedPath);
+    }
+  } catch {}
+}
+
+// ─── Blob→Base64 ──────────────────────────────────────────
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
 }
 
 // ─── 初期化 ──────────────────────────────────────────────
@@ -1841,6 +2157,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateCurrentLabel();
   onGenreChange();
+
+  // IndexedDB を初期化（写真機能）
+  openDB().catch(() => {});
 
   // 自動保存イベント
   document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => {
