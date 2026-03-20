@@ -98,6 +98,94 @@
       white-space: nowrap;
     }
     .btn-cloud:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-generate {
+      background: #e65100;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 記事生成モーダル */
+    .gen-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .gen-modal-overlay.open { display: flex; }
+    .gen-modal-sheet {
+      background: white;
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 520px;
+      padding: 20px 16px 32px;
+    }
+    .gen-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .gen-modal-header span { font-size: 16px; font-weight: bold; }
+    .btn-gen-close {
+      background: none; border: none; font-size: 20px; cursor: pointer; color: #666;
+    }
+    .gen-step { display: none; }
+    .gen-step.active { display: block; }
+    .gen-spinner {
+      display: flex; flex-direction: column; align-items: center; padding: 24px 0;
+      gap: 12px; color: #555; font-size: 14px;
+    }
+    .gen-spinner::before {
+      content: '';
+      width: 40px; height: 40px;
+      border: 4px solid #ddd;
+      border-top-color: #e65100;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gen-progress { font-size: 13px; color: #888; margin-top: 4px; }
+    .gen-title-list { list-style: none; padding: 0; margin: 0 0 16px; }
+    .gen-title-list li {
+      border: 2px solid #ddd; border-radius: 10px;
+      padding: 12px; margin-bottom: 10px;
+      cursor: pointer; font-size: 14px; line-height: 1.5;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .gen-title-list li:hover { border-color: #e65100; background: #fff3e0; }
+    .gen-title-list li.selected { border-color: #e65100; background: #fff3e0; font-weight: bold; }
+    .btn-post-wp {
+      width: 100%; background: #1565c0; color: white;
+      border: none; border-radius: 10px;
+      padding: 14px; font-size: 15px; font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-post-wp:disabled { opacity: 0.5; cursor: not-allowed; }
+    .gen-success {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px 0; gap: 14px; text-align: center;
+    }
+    .gen-success-icon { font-size: 48px; }
+    .gen-success-msg { font-size: 15px; font-weight: bold; color: #2c6e49; }
+    .btn-open-wp {
+      background: #2c6e49; color: white; border: none; border-radius: 10px;
+      padding: 12px 24px; font-size: 14px; font-weight: bold; cursor: pointer;
+    }
+    .gen-error-msg { color: #c62828; font-size: 13px; margin-top: 12px; white-space: pre-wrap; }
+    .gen-server-note {
+      background: #fff3e0; border-radius: 8px; padding: 12px;
+      font-size: 13px; color: #bf360c; margin-bottom: 12px;
+    }
 
     .settings-field { margin-bottom: 16px; }
     .settings-field label { display: block; font-size: 13px; color: #555; font-weight: bold; margin-bottom: 6px; }
@@ -478,8 +566,55 @@
 <div class="memo-bar">
   <span id="current-memo-label">新規メモ</span>
   <button class="btn-cloud" id="btn-cloud" onclick="saveToGist()">☁️ 保存</button>
+  <button class="btn-generate" id="btn-generate" onclick="openGenModal()">🚀 記事生成</button>
   <button class="btn-list" onclick="openList()">📋 一覧</button>
   <button class="btn-new" onclick="createNewMemo()">＋ 新規</button>
+</div>
+
+<!-- 記事生成モーダル -->
+<div class="gen-modal-overlay" id="gen-modal">
+  <div class="gen-modal-sheet">
+    <div class="gen-modal-header">
+      <span id="gen-modal-title">🚀 記事生成</span>
+      <button class="btn-gen-close" onclick="closeGenModal()">✕</button>
+    </div>
+
+    <!-- Step0: サーバー未起動 -->
+    <div class="gen-step" id="gen-step-offline">
+      <div class="gen-server-note">
+        ⚠️ PCのローカルサーバーに接続できません。<br>
+        <strong>tools/start_server.bat</strong> をダブルクリックして起動してください。
+      </div>
+      <button class="btn-post-wp" onclick="checkServerAndPipeline()">🔄 再接続して実行</button>
+    </div>
+
+    <!-- Step1: 生成中 -->
+    <div class="gen-step" id="gen-step-loading">
+      <div class="gen-spinner">
+        <span id="gen-loading-msg">メモを取得・記事を生成しています...</span>
+        <span class="gen-progress">（1〜3分かかります）</span>
+      </div>
+    </div>
+
+    <!-- Step2: タイトル選択 -->
+    <div class="gen-step" id="gen-step-titles">
+      <p style="font-size:14px;color:#555;margin-bottom:12px;">タイトルを選んでください：</p>
+      <ul class="gen-title-list" id="gen-title-list"></ul>
+      <button class="btn-post-wp" id="btn-post-wp" onclick="postToWordPress()" disabled>WordPressに下書き保存</button>
+      <div class="gen-error-msg" id="gen-post-error"></div>
+    </div>
+
+    <!-- Step3: 完了 -->
+    <div class="gen-step" id="gen-step-done">
+      <div class="gen-success">
+        <div class="gen-success-icon">✅</div>
+        <div class="gen-success-msg">下書き保存が完了しました！</div>
+        <button class="btn-open-wp" id="btn-open-wp" onclick="openWpEdit()">WordPressで編集する →</button>
+        <button onclick="closeGenModal()" style="background:none;border:none;color:#888;font-size:13px;cursor:pointer;">閉じる</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -505,6 +640,11 @@
       <div class="settings-field">
         <label>GitHub リポジトリ名（写真アップロード先）</label>
         <input type="text" id="gh-repo-input" placeholder="例: yasujun-memo">
+      </div>
+      <div class="settings-field">
+        <label>ローカルサーバーURL（記事生成ボタン用）</label>
+        <input type="text" id="server-url-input" placeholder="例: http://localhost:8765">
+        <p class="settings-note">PCで tools/start_server.bat を起動後に使用。デフォルトは http://localhost:8765</p>
       </div>
       <button class="btn-save-settings" onclick="saveToken()">保存する</button>
       <div style="margin-top:12px;text-align:center;">
@@ -1843,8 +1983,9 @@ function openSettings() {
     document.getElementById('token-input').value = '';
     document.getElementById('token-input').placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
   }
-  document.getElementById('gh-owner-input').value = localStorage.getItem('gh_owner') || 'yasujun11';
-  document.getElementById('gh-repo-input').value  = localStorage.getItem('gh_repo')  || 'yasujun-memo';
+  document.getElementById('gh-owner-input').value  = localStorage.getItem('gh_owner')    || 'yasujun11';
+  document.getElementById('gh-repo-input').value   = localStorage.getItem('gh_repo')     || 'yasujun-memo';
+  document.getElementById('server-url-input').value = localStorage.getItem('server_url') || 'http://localhost:8765';
   document.getElementById('settings-modal').classList.add('open');
 }
 function closeSettings() {
@@ -1863,8 +2004,10 @@ function saveToken() {
     }
     localStorage.setItem('github_token', token);
   }
-  if (owner) localStorage.setItem('gh_owner', owner);
-  if (repo)  localStorage.setItem('gh_repo',  repo);
+  const serverUrl = document.getElementById('server-url-input').value.trim();
+  if (owner)     localStorage.setItem('gh_owner',   owner);
+  if (repo)      localStorage.setItem('gh_repo',    repo);
+  if (serverUrl) localStorage.setItem('server_url', serverUrl);
   closeSettings();
   showToast('✅ 設定を保存しました');
 }
@@ -1873,6 +2016,140 @@ function clearToken() {
   localStorage.removeItem('github_token');
   closeSettings();
   showToast('トークンを削除しました');
+}
+
+// ─── 記事生成（ローカルサーバー連携） ─────────────────────
+
+let _genFolder = '';
+let _genWpUrl  = '';
+let _selectedTitleIndex = 0;
+
+function getServerUrl() {
+  return (localStorage.getItem('server_url') || 'http://localhost:8765').replace(/\/$/, '');
+}
+
+function showGenStep(stepId) {
+  ['gen-step-offline','gen-step-loading','gen-step-titles','gen-step-done'].forEach(id => {
+    document.getElementById(id).classList.remove('active');
+  });
+  document.getElementById(stepId).classList.add('active');
+}
+
+async function openGenModal() {
+  document.getElementById('gen-modal').classList.add('open');
+  document.getElementById('gen-modal-title').textContent = '🚀 記事生成';
+  document.getElementById('gen-post-error').textContent = '';
+  _genFolder = '';
+  _genWpUrl  = '';
+  await checkServerAndPipeline();
+}
+
+function closeGenModal() {
+  document.getElementById('gen-modal').classList.remove('open');
+}
+
+async function checkServerAndPipeline() {
+  const serverUrl = getServerUrl();
+  showGenStep('gen-step-loading');
+  document.getElementById('gen-loading-msg').textContent = 'サーバーに接続中...';
+
+  // サーバー死活確認
+  try {
+    const res = await fetch(`${serverUrl}/status`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch {
+    showGenStep('gen-step-offline');
+    return;
+  }
+
+  // パイプライン実行
+  document.getElementById('gen-loading-msg').textContent = 'メモを取得・記事を生成しています...';
+  const d = collectData();
+  const storeName  = d.storeName || '';
+  const visitDate  = d.visitDate ? d.visitDate.replace(/-/g,'') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const folderHint = visitDate && storeName ? `${visitDate}_${storeName}` : '';
+
+  try {
+    const res = await fetch(`${serverUrl}/pipeline`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_hint: folderHint }),
+    });
+    const data = await res.json();
+
+    if (data.status !== 'ok') {
+      showGenStep('gen-step-offline');
+      document.querySelector('#gen-step-offline .gen-server-note').textContent =
+        `❌ エラー（${data.step || ''}）: ${data.error || '不明なエラー'}`;
+      return;
+    }
+
+    _genFolder = data.folder;
+    _selectedTitleIndex = 1;
+    renderTitleList(data.titles);
+    showGenStep('gen-step-titles');
+  } catch (e) {
+    showGenStep('gen-step-offline');
+    document.querySelector('#gen-step-offline .gen-server-note').textContent =
+      `❌ 通信エラー: ${e.message}`;
+  }
+}
+
+function renderTitleList(titles) {
+  const ul = document.getElementById('gen-title-list');
+  ul.innerHTML = '';
+  titles.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.textContent = `${i+1}. ${t}`;
+    if (i === 0) li.classList.add('selected');
+    li.onclick = () => {
+      ul.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
+      li.classList.add('selected');
+      _selectedTitleIndex = i + 1;
+      document.getElementById('btn-post-wp').disabled = false;
+    };
+    ul.appendChild(li);
+  });
+  if (titles.length > 0) {
+    _selectedTitleIndex = 1;
+    document.getElementById('btn-post-wp').disabled = false;
+  }
+}
+
+async function postToWordPress() {
+  const serverUrl = getServerUrl();
+  const btn = document.getElementById('btn-post-wp');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  document.getElementById('gen-post-error').textContent = '';
+
+  try {
+    const res = await fetch(`${serverUrl}/post`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: _genFolder, title_index: _selectedTitleIndex }),
+    });
+    const data = await res.json();
+
+    if (data.status !== 'ok') {
+      document.getElementById('gen-post-error').textContent = `❌ ${data.error}`;
+      btn.disabled = false;
+      btn.textContent = 'WordPressに下書き保存';
+      return;
+    }
+
+    _genWpUrl = data.edit_url;
+    document.getElementById('gen-modal-title').textContent = '✅ 完了';
+    showGenStep('gen-step-done');
+  } catch (e) {
+    document.getElementById('gen-post-error').textContent = `❌ 通信エラー: ${e.message}`;
+    btn.disabled = false;
+    btn.textContent = 'WordPressに下書き保存';
+  }
+}
+
+function openWpEdit() {
+  if (_genWpUrl) window.open(_genWpUrl, '_blank');
 }
 
 // ─── GitHub Gist 保存 ────────────────────────────────────
