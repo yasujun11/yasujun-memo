@@ -1925,6 +1925,7 @@ async function saveToGist() {
       const safeStore = (d.storeName || '未入力').replace(/[\\/:*?"<>|]/g, '_');
       const folder = `photos/${visitDate}_${safeStore}`;
       let ok = 0;
+      let lastPhotoErr = '';
 
       for (let i = 0; i < unuploaded.length; i++) {
         btn.textContent = `写真(${i}/${unuploaded.length})...`;
@@ -1963,9 +1964,15 @@ async function saveToGist() {
               th.appendChild(b);
             }
           }
-        } catch {}
+        } catch(photoErr) {
+          lastPhotoErr = photoErr.message || String(photoErr);
+        }
       }
-      showToast(`☁️ Gist保存 + 写真${ok}/${unuploaded.length}枚アップロード完了！`);
+      if (ok === unuploaded.length) {
+        showToast(`☁️ Gist保存 + 写真${ok}枚アップロード完了！`);
+      } else {
+        showToast(`⚠️ 写真アップロード失敗(${ok}/${unuploaded.length}): ${lastPhotoErr}`);
+      }
     } else {
       showToast('☁️ Gistに保存しました！');
     }
