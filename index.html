@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="やすじゅんメモ">
+  <title>やすじゅんメモ</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: #f0f4f0;
+      color: #333;
+      font-size: 16px;
+      padding-bottom: 90px;
+    }
+
+    header {
+      background: #2c6e49;
+      color: white;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 18px; font-weight: bold; }
+    #save-indicator { font-size: 12px; opacity: 0.85; }
+    .btn-settings {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      opacity: 0.85;
+    }
+
+    /* ── メモ一覧バー ── */
+    .memo-bar {
+      background: #1e4d33;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 49px;
+      z-index: 99;
+    }
+    #current-memo-label {
+      flex: 1;
+      color: white;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-list {
+      background: white;
+      color: #1e4d33;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-new {
+      background: #52b788;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-cloud {
+      background: #1565c0;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-cloud:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .settings-field { margin-bottom: 16px; }
+    .settings-field label { display: block; font-size: 13px; color: #555; font-weight: bold; margin-bottom: 6px; }
+    .settings-field input {
+      width: 100%; border: 1.5px solid #ddd; border-radius: 8px;
+      padding: 10px 12px; font-size: 15px; font-family: inherit;
+      background: #fafafa;
+    }
+    .settings-field input:focus { outline: none; border-color: #2c6e49; background: white; }
+    .settings-note { font-size: 12px; color: #888; margin-top: 6px; }
+    .btn-save-settings {
+      width: 100%; background: #2c6e49; color: white; border: none;
+      border-radius: 10px; padding: 14px; font-size: 16px; font-weight: bold;
+      font-family: inherit; cursor: pointer; margin-top: 8px;
+    }
+    .token-status { font-size: 13px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; }
+    .token-status.set { background: #e8f5e9; color: #2e7d32; }
+    .token-status.notset { background: #fff3e0; color: #e65100; }
+
+    /* ── モーダル ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      align-items: flex-end;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-sheet {
+      background: white;
+      width: 100%;
+      max-height: 80vh;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: #2c6e49;
+      color: white;
+      padding: 14px 16px;
+      font-weight: bold;
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .btn-modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .modal-body { overflow-y: auto; flex: 1; }
+    .memo-list-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .memo-list-item:active { background: #f0f9f3; }
+    .memo-list-item.active-item { background: #e8f5e9; }
+    .memo-item-info { flex: 1; min-width: 0; }
+    .memo-item-name {
+      font-weight: bold;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .memo-item-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .btn-delete-item {
+      background: #fff0f0;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .memo-list-empty {
+      text-align: center;
+      color: #aaa;
+      padding: 30px;
+      font-size: 14px;
+    }
+
+    .section {
+      background: white;
+      margin: 12px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .section-header {
+      background: #2c6e49;
+      color: white;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .section-body { padding: 14px 12px; }
+
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 16px;
+      font-family: inherit;
+      color: #333;
+      background: #fafafa;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2c6e49;
+      background: white;
+    }
+    textarea {
+      resize: none;
+      min-height: 80px;
+      overflow: hidden;
+      line-height: 1.5;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: normal;
+      color: #333;
+      background: #f0f0f0;
+      padding: 8px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .radio-group label:has(input:checked) {
+      background: #d4edda;
+      color: #2c6e49;
+      font-weight: bold;
+    }
+    .radio-group input { width: auto; margin: 0; }
+
+    #order-items { display: flex; flex-direction: column; gap: 8px; }
+    .order-item { display: flex; gap: 8px; align-items: center; }
+    .order-item input:first-child { flex: 1; }
+    .order-item input:nth-child(2) { width: 100px; }
+    .btn-add-item {
+      background: #f0f9f3;
+      color: #2c6e49;
+      border: 1.5px dashed #2c6e49;
+      border-radius: 8px;
+      padding: 9px;
+      width: 100%;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-remove {
+      background: #fff0f0;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      padding: 10px 14px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+    }
+    .btn-copy {
+      flex: 1;
+      background: #2c6e49;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-copy:active { background: #1e4d33; }
+    .btn-clear {
+      background: #f5f5f5;
+      color: #666;
+      border: 1.5px solid #ddd;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #toast {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 22px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+
+    .sub-label {
+      font-size: 12px;
+      color: #888;
+      font-weight: normal;
+      margin-bottom: 5px;
+      margin-top: 10px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📝 やすじゅんメモ</h1>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="save-indicator">● 保存済み</span>
+    <button class="btn-settings" onclick="openSettings()" title="設定">⚙️</button>
+  </div>
+</header>
+
+<div class="memo-bar">
+  <span id="current-memo-label">新規メモ</span>
+  <button class="btn-cloud" id="btn-cloud" onclick="saveToGist()">☁️ 保存</button>
+  <button class="btn-list" onclick="openList()">📋 一覧</button>
+  <button class="btn-new" onclick="createNewMemo()">＋ 新規</button>
+</div>
+
+<div id="toast"></div>
+
+<!-- 設定モーダル -->
+<div class="modal-overlay" id="settings-modal" onclick="handleSettingsOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>⚙️ 設定</span>
+      <button class="btn-modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <div id="token-status-display"></div>
+      <div class="settings-field">
+        <label>GitHub Personal Access Token</label>
+        <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        <p class="settings-note">github.com → Settings → Developer settings → Personal access tokens → Tokens (classic) で発行。スコープは「gist」のみでOK。</p>
+      </div>
+      <button class="btn-save-settings" onclick="saveToken()">保存する</button>
+      <div style="margin-top:12px;text-align:center;">
+        <button onclick="clearToken()" style="background:none;border:none;color:#c62828;font-size:13px;cursor:pointer;">トークンを削除する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- メモ一覧モーダル -->
+<div class="modal-overlay" id="list-modal" onclick="handleOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span>保存済みメモ一覧</span>
+      <button class="btn-modal-close" onclick="closeList()">✕</button>
+    </div>
+    <div class="modal-body" id="memo-list-body"></div>
+  </div>
+</div>
+
+<!-- ■ 基本情報 -->
+<div class="section">
+  <div class="section-header">■ 基本情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>ジャンル</label>
+      <select id="genre" onchange="onGenreChange()">
+        <option value="グルメ">グルメ</option>
+        <option value="おでかけ">おでかけ</option>
+        <option value="ウルトラウォーキング">ウルトラウォーキング</option>
+        <option value="サンフレッチェ広島">サンフレッチェ広島</option>
+        <option value="FUNKY MONKEY BΛBY'S">FUNKY MONKEY BΛBY'S</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>訪問日</label>
+      <input type="date" id="visit-date">
+    </div>
+    <div class="field">
+      <label>店名 / 場所名</label>
+      <input type="text" id="store-name" placeholder="例: ツキサップじんぎすかんクラブ">
+    </div>
+    <div class="field">
+      <label>エリア（最寄り駅・都市名）</label>
+      <input type="text" id="area" placeholder="例: 札幌市豊平区 / 月寒中央駅">
+    </div>
+  </div>
+</div>
+
+<!-- ■ イントロ -->
+<div class="section">
+  <div class="section-header">■ イントロ</div>
+  <div class="section-body">
+    <div class="field">
+      <label>訪問のきっかけ・エピソード</label>
+      <textarea id="intro-reason" placeholder="なぜ行こうと思ったか。SNSで見た・口コミ・家族のリクエスト など"></textarea>
+    </div>
+    <div class="field">
+      <label>個人的なエピソード（任意）</label>
+      <textarea id="intro-episode" placeholder="長女の誕生日だった / 久しぶりの再訪 / 前回〇〇だったのでリベンジ など"></textarea>
+    </div>
+    <div class="field">
+      <label>関連記事（イントロ直後）</label>
+      <span class="sub-label">WordPress 記事ID</span>
+      <input type="text" id="related-intro-id" placeholder="例: 1234">
+      <span class="sub-label">コメント</span>
+      <input type="text" id="related-intro-comment" placeholder="例: 冬の北海道3泊4日の詳細はこちら">
+    </div>
+    <div class="field">
+      <label>関連記事（まとめ後）</label>
+      <span class="sub-label">WordPress 記事ID</span>
+      <input type="text" id="related-summary-id" placeholder="例: 1234">
+      <span class="sub-label">コメント</span>
+      <input type="text" id="related-summary-comment" placeholder="例: 北海道旅行の全体まとめはこちら">
+    </div>
+    <div class="field">
+      <label>X（Twitter）投稿URL</label>
+      <input type="url" id="x-url" placeholder="https://x.com/...">
+    </div>
+  </div>
+</div>
+
+<!-- ■ おでかけパターン（おでかけ時のみ表示） -->
+<div class="section" id="section-odekake-pattern" style="display:none">
+  <div class="section-header">■ おでかけパターン</div>
+  <div class="section-body">
+    <div class="field">
+      <label>パターン</label>
+      <select id="odekake-pattern" onchange="onOdekakePatternChange()">
+        <option value="①施設">①施設体験レポ</option>
+        <option value="②イベント">②イベント体験レポ</option>
+        <option value="③乗り物">③乗り物体験</option>
+        <option value="④映画">④映画</option>
+        <option value="⑤その他">⑤その他おでかけ</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>同行者</label>
+      <input type="text" id="companion" placeholder="例: 妻 / 家族4人（妻・長女8歳・次女1歳）">
+    </div>
+    <!-- ③乗り物専用 -->
+    <div id="field-vehicle" style="display:none">
+      <div class="field">
+        <label>乗り物種別・便名</label>
+        <input type="text" id="vehicle-name" placeholder="例: サンライズ出雲・寝台急行はまなす・ANA206便">
+      </div>
+      <div class="field">
+        <label>出発地 → 目的地</label>
+        <input type="text" id="vehicle-route" placeholder="例: 東京 → 出雲市">
+      </div>
+      <div class="field">
+        <label>利用クラス・席種</label>
+        <input type="text" id="vehicle-class" placeholder="例: B寝台ソロ / プレミアムシート">
+      </div>
+    </div>
+    <!-- ④映画専用 -->
+    <div id="field-movie-basic" style="display:none">
+      <div class="field">
+        <label>原題</label>
+        <input type="text" id="movie-subtitle" placeholder="英語タイトルなど（任意）">
+      </div>
+      <div class="field">
+        <label>監督</label>
+        <input type="text" id="movie-director">
+      </div>
+      <div class="field">
+        <label>主演</label>
+        <input type="text" id="movie-cast">
+      </div>
+      <div class="field">
+        <label>映画館</label>
+        <input type="text" id="movie-cinema">
+      </div>
+      <div class="field">
+        <label>ネタバレ</label>
+        <div class="radio-group">
+          <label><input type="radio" name="movie-spoiler" value="なし"> なし</label>
+          <label><input type="radio" name="movie-spoiler" value="あり"> あり</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 概要・基本情報（おでかけ①②③⑤） -->
+<div class="section" id="section-odekake-overview" style="display:none">
+  <div class="section-header" id="label-odekake-overview">■ 概要・基本情報</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="odekake-overview" placeholder="アクセス・料金・営業時間・予約方法など" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 映画：作品情報（④のみ） -->
+<div class="section" id="section-movie-info" style="display:none">
+  <div class="section-header">■ 作品情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>あらすじ（ネタバレなし）・推奨対象</label>
+      <textarea id="movie-story" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>チケット・上映情報</label>
+      <textarea id="movie-ticket" placeholder="料金・割引・上映期間など" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>シリーズ情報（あれば）</label>
+      <textarea id="movie-series" placeholder="前作を見ていなくてもOKか・見る順序など" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 体験レポ（おでかけ①②③⑤） -->
+<div class="section" id="section-odekake-exp" style="display:none">
+  <div class="section-header" id="label-odekake-exp">■ 体験レポ</div>
+  <div class="section-body">
+    <div class="field">
+      <label id="label-exp1">体験①</label>
+      <textarea id="odekake-exp1" placeholder="感動・驚き・子供の反応を具体的に" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label id="label-exp2">体験②</label>
+      <textarea id="odekake-exp2" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>ネガティブな点・注意点</label>
+      <textarea id="odekake-bad" placeholder="混雑・待ち時間・アクセスの不便さなど。読者へのアドバイスとして" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 映画：感想・レビュー（④のみ） -->
+<div class="section" id="section-movie-review" style="display:none">
+  <div class="section-header">■ 感想・レビュー</div>
+  <div class="section-body">
+    <div class="field">
+      <label>テーマ・演出・泣けたポイント</label>
+      <textarea id="movie-review1" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>子供の反応・シリーズ比較（あれば）</label>
+      <textarea id="movie-review2" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 施設/スポット情報（おでかけ①⑤） -->
+<div class="section" id="section-odekake-info" style="display:none">
+  <div class="section-header" id="label-odekake-info">■ 施設情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>住所</label>
+      <input type="text" id="odekake-address" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>電話番号</label>
+      <input type="text" id="odekake-phone" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>営業時間</label>
+      <input type="text" id="odekake-hours" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>定休日</label>
+      <input type="text" id="odekake-closed" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>駐車場</label>
+      <input type="text" id="odekake-parking" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>公式サイト URL</label>
+      <input type="url" id="odekake-url-site" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>Instagram URL</label>
+      <input type="url" id="odekake-url-instagram" oninput="scheduleAutoSave()">
+    </div>
+    <div class="field">
+      <label>予約サイト URL（アソビュー等）</label>
+      <input type="url" id="odekake-url-booking" oninput="scheduleAutoSave()">
+    </div>
+  </div>
+</div>
+
+<!-- ■ 映画：グッズ・配信情報（④のみ） -->
+<div class="section" id="section-movie-goods" style="display:none">
+  <div class="section-header">■ グッズ・配信情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>来場特典・グッズ</label>
+      <textarea id="movie-goods" placeholder="グッズの種類・価格・購入したもの" oninput="scheduleAutoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label>配信サービス情報</label>
+      <textarea id="movie-streaming" placeholder="Netflix・Amazon Prime・Disney+など配信予定時期" oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ FAQ（おでかけ全パターン） -->
+<div class="section" id="section-odekake-faq" style="display:none">
+  <div class="section-header">■ FAQ・よくある質問メモ</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="odekake-faq" placeholder="Q: 予約なしで行けますか？&#10;A: &#10;&#10;Q: 雨の日は営業していますか？&#10;A: " oninput="scheduleAutoSave()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ お店の概要 -->
+<div class="section" id="section-store-overview">
+  <div class="section-header">■ お店の概要</div>
+  <div class="section-body">
+    <div class="field">
+      <label>外観・雰囲気</label>
+      <textarea id="appearance" placeholder="外観の特徴・席数・カウンター/テーブル など"></textarea>
+    </div>
+    <div class="field">
+      <label>訪問時刻</label>
+      <input type="text" id="visit-time" placeholder="例: 18時頃">
+    </div>
+    <div class="field">
+      <label>混み具合</label>
+      <div class="radio-group">
+        <label><input type="radio" name="crowd" value="空いていた"> 空いていた</label>
+        <label><input type="radio" name="crowd" value="少し混んでいた"> 少し混んでいた</label>
+        <label><input type="radio" name="crowd" value="行列あり"> 行列あり</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>待ち時間</label>
+      <input type="text" id="wait-time" placeholder="例: すぐ座れた / 10分ほど待った / 予約済み">
+    </div>
+    <div class="field">
+      <label>注文方法</label>
+      <div class="radio-group">
+        <label><input type="radio" name="order-method" value="券売機"> 券売機</label>
+        <label><input type="radio" name="order-method" value="QRコード"> QRコード</label>
+        <label><input type="radio" name="order-method" value="口頭"> 口頭</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>注文したもの</label>
+      <div id="order-items">
+        <div class="order-item">
+          <input type="text" placeholder="メニュー名" oninput="scheduleAutoSave()">
+          <input type="text" placeholder="金額" oninput="scheduleAutoSave()">
+          <button class="btn-remove" onclick="removeOrderItem(this)">×</button>
+        </div>
+      </div>
+      <button class="btn-add-item" onclick="addOrderItem()">＋ 追加</button>
+    </div>
+    <div class="field">
+      <label>合計金額</label>
+      <input type="text" id="total-price" placeholder="例: 2,400円 / 2人で合計4,800円">
+    </div>
+    <div class="field">
+      <label>カスタマイズ・辛さ変更など</label>
+      <input type="text" id="customize" placeholder="例: 辛さ3辛 / 麺硬め">
+    </div>
+  </div>
+</div>
+
+<!-- ■ 実食レビュー -->
+<div class="section" id="section-review">
+  <div class="section-header">■ 実食レビュー</div>
+  <div class="section-body">
+    <div class="field">
+      <label>良かったこと・感動したこと</label>
+      <textarea id="review-good" placeholder="見た目・味・食感・美味しさの秘密など"></textarea>
+    </div>
+    <div class="field">
+      <label>ネガティブな点・注意点</label>
+      <textarea id="review-bad" placeholder="提供スピード・アクセス・駐車場・席の狭さ など"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ まとめ -->
+<div class="section">
+  <div class="section-header">■ まとめ・感想</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="summary" placeholder="一番良かったところ・次回試したいもの・リピートしたいか"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ■ 店舗情報 -->
+<div class="section" id="section-shop-info">
+  <div class="section-header">■ 店舗情報</div>
+  <div class="section-body">
+    <div class="field">
+      <label>住所</label>
+      <input type="text" id="address" placeholder="例: 北海道札幌市豊平区月寒東1条15-1-30">
+    </div>
+    <div class="field">
+      <label>電話番号</label>
+      <input type="text" id="phone" placeholder="例: 011-851-1653">
+    </div>
+    <div class="field">
+      <label>営業時間</label>
+      <input type="text" id="hours" placeholder="例: 11:00〜20:00（LO 19:30）">
+    </div>
+    <div class="field">
+      <label>定休日</label>
+      <input type="text" id="closed" placeholder="例: 火曜日・水曜日">
+    </div>
+    <div class="field">
+      <label>駐車場</label>
+      <input type="text" id="parking" placeholder="例: あり（無料）">
+    </div>
+    <div class="field">
+      <label>公式サイト URL</label>
+      <input type="url" id="url-site" placeholder="https://...">
+    </div>
+    <div class="field">
+      <label>Instagram URL</label>
+      <input type="url" id="url-instagram" placeholder="https://instagram.com/...">
+    </div>
+    <div class="field">
+      <label>X（Twitter）URL</label>
+      <input type="url" id="url-twitter" placeholder="https://x.com/...">
+    </div>
+    <div class="field">
+      <label>食べログ・ホットペッパー URL</label>
+      <input type="url" id="url-tabelog" placeholder="https://...">
+    </div>
+  </div>
+</div>
+
+<!-- ■ その他メモ -->
+<div class="section">
+  <div class="section-header">■ その他メモ</div>
+  <div class="section-body">
+    <div class="field">
+      <textarea id="other" placeholder="写真の枚数・順番のメモ・補足情報など"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-copy" onclick="copyMemo()">📋 テキストをコピー</button>
+  <button class="btn-clear" onclick="clearCurrent()">🗑 クリア</button>
+</div>
+
+<script>
+const IDS_KEY   = 'yasujun_memo_ids';
+const DATA_KEY  = id => 'yasujun_memo_data_' + id;
+const MAX_MEMOS = 20;
+
+let currentId = null;
+let saveTimer = null;
+
+// ─── ID管理 ───────────────────────────────────────────────
+function getIds() {
+  try { return JSON.parse(localStorage.getItem(IDS_KEY)) || []; } catch { return []; }
+}
+function saveIds(ids) { localStorage.setItem(IDS_KEY, JSON.stringify(ids)); }
+function genId() { return 'memo_' + Date.now(); }
+
+// ─── 自動保存 ─────────────────────────────────────────────
+function scheduleAutoSave() {
+  document.getElementById('save-indicator').textContent = '○ 保存中...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveCurrentMemo();
+    document.getElementById('save-indicator').textContent = '● 保存済み';
+    updateCurrentLabel();
+  }, 600);
+}
+
+function saveCurrentMemo() {
+  if (!currentId) return;
+  const d = collectData();
+  localStorage.setItem(DATA_KEY(currentId), JSON.stringify(d));
+  const ids = getIds();
+  if (!ids.includes(currentId)) {
+    if (ids.length >= MAX_MEMOS) {
+      showToast('⚠️ 上限20件です。古いメモを削除してください');
+      return;
+    }
+    ids.push(currentId);
+    saveIds(ids);
+  }
+}
+
+// ─── 新規メモ作成 ─────────────────────────────────────────
+function createNewMemo() {
+  const ids = getIds();
+  if (ids.length >= MAX_MEMOS) {
+    showToast('⚠️ 上限20件です。一覧から不要なメモを削除してください');
+    return;
+  }
+  // 現在のメモを保存
+  saveCurrentMemo();
+  // 新しいIDで空フォームを開く
+  currentId = genId();
+  clearForm();
+  updateCurrentLabel();
+  showToast('新規メモを作成しました');
+}
+
+// ─── メモ切り替え ─────────────────────────────────────────
+function switchMemo(id) {
+  saveCurrentMemo();
+  currentId = id;
+  const ids = getIds();
+  if (!ids.includes(id)) { ids.push(id); saveIds(ids); }
+  clearForm();
+  try {
+    const saved = localStorage.getItem(DATA_KEY(id));
+    if (saved) loadData(JSON.parse(saved));
+  } catch {}
+  updateCurrentLabel();
+  closeList();
+  showToast('メモを切り替えました');
+}
+
+// ─── メモ削除 ─────────────────────────────────────────────
+function deleteMemo(id, e) {
+  e.stopPropagation();
+  const ids = getIds();
+  const name = getMemoName(id);
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  localStorage.removeItem(DATA_KEY(id));
+  const newIds = ids.filter(i => i !== id);
+  saveIds(newIds);
+  if (id === currentId) {
+    // 別のメモに切り替えるか新規
+    if (newIds.length > 0) {
+      currentId = newIds[newIds.length - 1];
+      clearForm();
+      try {
+        const saved = localStorage.getItem(DATA_KEY(currentId));
+        if (saved) loadData(JSON.parse(saved));
+      } catch {}
+    } else {
+      currentId = genId();
+      clearForm();
+    }
+    updateCurrentLabel();
+  }
+  renderMemoList();
+  showToast('削除しました');
+}
+
+function getMemoName(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_KEY(id)));
+    return d?.storeName || '（店名未入力）';
+  } catch { return '（不明）'; }
+}
+
+function getMemoMeta(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_KEY(id)));
+    const parts = [];
+    if (d?.visitDate) parts.push(d.visitDate.replace(/-/g, '/'));
+    if (d?.genre) parts.push(d.genre);
+    return parts.join(' ・ ') || '未入力';
+  } catch { return ''; }
+}
+
+// ─── 一覧モーダル ─────────────────────────────────────────
+function openList() {
+  renderMemoList();
+  document.getElementById('list-modal').classList.add('open');
+}
+function closeList() {
+  document.getElementById('list-modal').classList.remove('open');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('list-modal')) closeList();
+}
+
+function renderMemoList() {
+  const ids = getIds();
+  const body = document.getElementById('memo-list-body');
+  if (ids.length === 0) {
+    body.innerHTML = '<p class="memo-list-empty">保存済みのメモはありません</p>';
+    return;
+  }
+  body.innerHTML = ids.slice().reverse().map(id => `
+    <div class="memo-list-item ${id === currentId ? 'active-item' : ''}" onclick="switchMemo('${id}')">
+      <div class="memo-item-info">
+        <div class="memo-item-name">${escHtml(getMemoName(id))}${id === currentId ? ' ✏️' : ''}</div>
+        <div class="memo-item-meta">${escHtml(getMemoMeta(id))}</div>
+      </div>
+      <button class="btn-delete-item" onclick="deleteMemo('${id}', event)">削除</button>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── 現在のラベル更新 ─────────────────────────────────────
+function updateCurrentLabel() {
+  const d = collectData();
+  const name = d.storeName || '新規メモ';
+  const ids = getIds();
+  const total = ids.length;
+  document.getElementById('current-memo-label').textContent =
+    `✏️ ${name}（全${total}件）`;
+}
+
+// ─── ジャンル切り替え ─────────────────────────────────────
+function onGenreChange() {
+  const genre = document.getElementById('genre').value;
+  const isOdekake = genre === 'おでかけ';
+  const isGourmet = !isOdekake;
+
+  ['section-store-overview', 'section-review', 'section-shop-info'].forEach(id => {
+    document.getElementById(id).style.display = isGourmet ? '' : 'none';
+  });
+  document.getElementById('section-odekake-pattern').style.display = isOdekake ? '' : 'none';
+  document.getElementById('section-odekake-faq').style.display = isOdekake ? '' : 'none';
+
+  if (isOdekake) {
+    onOdekakePatternChange();
+  } else {
+    ['section-odekake-overview','section-odekake-exp','section-movie-info',
+     'section-movie-review','section-movie-goods','section-odekake-info'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+  }
+}
+
+function onOdekakePatternChange() {
+  const pattern = document.getElementById('odekake-pattern').value;
+  const isMovie = pattern === '④映画';
+  const hasInfo = pattern === '①施設' || pattern === '⑤その他';
+  const isVehicle = pattern === '③乗り物';
+
+  // 乗り物専用フィールド
+  document.getElementById('field-vehicle').style.display = isVehicle ? '' : 'none';
+  // 映画専用フィールド（基本情報）
+  document.getElementById('field-movie-basic').style.display = isMovie ? '' : 'none';
+
+  // 概要セクション（映画以外）
+  document.getElementById('section-odekake-overview').style.display = isMovie ? 'none' : '';
+  if (!isMovie) {
+    const cfg = {
+      '①施設':   ['■ 概要・基本情報', 'アクセス・料金・営業時間・予約方法など'],
+      '②イベント':['■ イベント概要',   'イベント背景・日程・場所・料金・チケット購入方法など'],
+      '③乗り物': ['■ 基本情報・予約方法', '料金・予約のコツ・乗り場情報など'],
+      '⑤その他': ['■ 基本情報・アクセス', 'スポット概要・住所・最寄り駅・駐車場・入場料・営業時間など'],
+    };
+    const [lbl, ph] = cfg[pattern] || ['■ 概要・基本情報', ''];
+    document.getElementById('label-odekake-overview').textContent = lbl;
+    document.getElementById('odekake-overview').placeholder = ph;
+  }
+
+  // 体験レポセクション（映画以外）
+  document.getElementById('section-odekake-exp').style.display = isMovie ? 'none' : '';
+  if (!isMovie) {
+    const ecfg = {
+      '①施設':   ['■ 体験レポ',           '体験①（感動・子供の反応）',           '体験②・施設内グルメ'],
+      '②イベント':['■ 当日レポ',           '会場の雰囲気・メインコンテンツの体験', 'グッズ・飲食の様子'],
+      '③乗り物': ['■ 乗車・搭乗レポ',     '座席・設備の様子・食事',               'シャワー・アメニティ・トラブルなど'],
+      '⑤その他': ['■ 体験レポ・現地の様子','見どころ①（感動ポイント）',           '見どころ②・周辺グルメ'],
+    };
+    const [sl, e1, e2] = ecfg[pattern] || ['■ 体験レポ', '体験①', '体験②'];
+    document.getElementById('label-odekake-exp').textContent = sl;
+    document.getElementById('label-exp1').textContent = e1;
+    document.getElementById('label-exp2').textContent = e2;
+  }
+
+  // 映画専用セクション
+  ['section-movie-info','section-movie-review','section-movie-goods'].forEach(id => {
+    document.getElementById(id).style.display = isMovie ? '' : 'none';
+  });
+
+  // 施設/スポット情報テーブル（①⑤のみ）
+  document.getElementById('section-odekake-info').style.display = hasInfo ? '' : 'none';
+  if (hasInfo) {
+    document.getElementById('label-odekake-info').textContent =
+      pattern === '①施設' ? '■ 施設情報' : '■ スポット情報';
+  }
+}
+
+// ─── フォームクリア ───────────────────────────────────────
+function clearForm() {
+  document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => { el.value = ''; });
+  document.querySelectorAll('input[type=radio]').forEach(el => { el.checked = false; });
+  document.getElementById('order-items').innerHTML = '';
+  addOrderItem();
+  document.getElementById('visit-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('genre').value = 'グルメ';
+  document.querySelectorAll('textarea').forEach(el => { el.style.height = 'auto'; });
+  onGenreChange();
+}
+
+// ─── 現在のメモをクリア ───────────────────────────────────
+function clearCurrent() {
+  if (!confirm('現在のメモの入力内容をクリアしますか？\n（一覧からは削除されません）')) return;
+  clearForm();
+  scheduleAutoSave();
+  showToast('クリアしました');
+}
+
+// ─── データ収集 ───────────────────────────────────────────
+function collectData() {
+  const orderItems = [];
+  document.querySelectorAll('#order-items .order-item').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    orderItems.push({ name: inputs[0].value, price: inputs[1].value });
+  });
+  return {
+    genre:                document.getElementById('genre').value,
+    visitDate:            document.getElementById('visit-date').value,
+    storeName:            document.getElementById('store-name').value,
+    area:                 document.getElementById('area').value,
+    introReason:          document.getElementById('intro-reason').value,
+    introEpisode:         document.getElementById('intro-episode').value,
+    relatedIntroId:       document.getElementById('related-intro-id').value,
+    relatedIntroComment:  document.getElementById('related-intro-comment').value,
+    relatedSummaryId:     document.getElementById('related-summary-id').value,
+    relatedSummaryComment:document.getElementById('related-summary-comment').value,
+    xUrl:                 document.getElementById('x-url').value,
+    appearance:           document.getElementById('appearance').value,
+    visitTime:            document.getElementById('visit-time').value,
+    crowd:                document.querySelector('input[name="crowd"]:checked')?.value || '',
+    waitTime:             document.getElementById('wait-time').value,
+    orderMethod:          document.querySelector('input[name="order-method"]:checked')?.value || '',
+    orderItems,
+    totalPrice:           document.getElementById('total-price').value,
+    customize:            document.getElementById('customize').value,
+    reviewGood:           document.getElementById('review-good').value,
+    reviewBad:            document.getElementById('review-bad').value,
+    summary:              document.getElementById('summary').value,
+    address:              document.getElementById('address').value,
+    phone:                document.getElementById('phone').value,
+    hours:                document.getElementById('hours').value,
+    closed:               document.getElementById('closed').value,
+    parking:              document.getElementById('parking').value,
+    urlSite:              document.getElementById('url-site').value,
+    urlInstagram:         document.getElementById('url-instagram').value,
+    urlTwitter:           document.getElementById('url-twitter').value,
+    urlTabelog:           document.getElementById('url-tabelog').value,
+    other:                document.getElementById('other').value,
+    // おでかけ共通
+    odekakePattern:       document.getElementById('odekake-pattern').value,
+    companion:            document.getElementById('companion').value,
+    odekakeOverview:      document.getElementById('odekake-overview').value,
+    odekakeExp1:          document.getElementById('odekake-exp1').value,
+    odekakeExp2:          document.getElementById('odekake-exp2').value,
+    odekakedBad:          document.getElementById('odekake-bad').value,
+    odekakedFaq:          document.getElementById('odekake-faq').value,
+    odekakeAddress:       document.getElementById('odekake-address').value,
+    odekakePhone:         document.getElementById('odekake-phone').value,
+    odekakeHours:         document.getElementById('odekake-hours').value,
+    odekakedClosed:       document.getElementById('odekake-closed').value,
+    odekakeParking:       document.getElementById('odekake-parking').value,
+    odekakeUrlSite:       document.getElementById('odekake-url-site').value,
+    odekakeUrlInstagram:  document.getElementById('odekake-url-instagram').value,
+    odekakeUrlBooking:    document.getElementById('odekake-url-booking').value,
+    // 乗り物専用
+    vehicleName:          document.getElementById('vehicle-name').value,
+    vehicleRoute:         document.getElementById('vehicle-route').value,
+    vehicleClass:         document.getElementById('vehicle-class').value,
+    // 映画専用
+    movieSubtitle:        document.getElementById('movie-subtitle').value,
+    movieDirector:        document.getElementById('movie-director').value,
+    movieCast:            document.getElementById('movie-cast').value,
+    movieCinema:          document.getElementById('movie-cinema').value,
+    movieSpoiler:         document.querySelector('input[name="movie-spoiler"]:checked')?.value || '',
+    movieStory:           document.getElementById('movie-story').value,
+    movieTicket:          document.getElementById('movie-ticket').value,
+    movieSeries:          document.getElementById('movie-series').value,
+    movieReview1:         document.getElementById('movie-review1').value,
+    movieReview2:         document.getElementById('movie-review2').value,
+    movieGoods:           document.getElementById('movie-goods').value,
+    movieStreaming:        document.getElementById('movie-streaming').value,
+  };
+}
+
+// ─── データ復元 ───────────────────────────────────────────
+function loadData(d) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+  set('genre', d.genre);
+  set('visit-date', d.visitDate);
+  set('store-name', d.storeName);
+  set('area', d.area);
+  set('intro-reason', d.introReason);
+  set('intro-episode', d.introEpisode);
+  set('related-intro-id', d.relatedIntroId);
+  set('related-intro-comment', d.relatedIntroComment);
+  set('related-summary-id', d.relatedSummaryId);
+  set('related-summary-comment', d.relatedSummaryComment);
+  set('x-url', d.xUrl);
+  set('appearance', d.appearance);
+  set('visit-time', d.visitTime);
+  if (d.crowd) { const r = document.querySelector(`input[name="crowd"][value="${d.crowd}"]`); if (r) r.checked = true; }
+  set('wait-time', d.waitTime);
+  if (d.orderMethod) { const r = document.querySelector(`input[name="order-method"][value="${d.orderMethod}"]`); if (r) r.checked = true; }
+  set('total-price', d.totalPrice);
+  set('customize', d.customize);
+  set('review-good', d.reviewGood);
+  set('review-bad', d.reviewBad);
+  set('summary', d.summary);
+  set('address', d.address);
+  set('phone', d.phone);
+  set('hours', d.hours);
+  set('closed', d.closed);
+  set('parking', d.parking);
+  set('url-site', d.urlSite);
+  set('url-instagram', d.urlInstagram);
+  set('url-twitter', d.urlTwitter);
+  set('url-tabelog', d.urlTabelog);
+  set('other', d.other);
+  // おでかけ共通
+  set('odekake-pattern', d.odekakePattern);
+  set('companion', d.companion);
+  set('odekake-overview', d.odekakeOverview);
+  set('odekake-exp1', d.odekakeExp1);
+  set('odekake-exp2', d.odekakeExp2);
+  set('odekake-bad', d.odekakedBad);
+  set('odekake-faq', d.odekakedFaq);
+  set('odekake-address', d.odekakeAddress);
+  set('odekake-phone', d.odekakePhone);
+  set('odekake-hours', d.odekakeHours);
+  set('odekake-closed', d.odekakedClosed);
+  set('odekake-parking', d.odekakeParking);
+  set('odekake-url-site', d.odekakeUrlSite);
+  set('odekake-url-instagram', d.odekakeUrlInstagram);
+  set('odekake-url-booking', d.odekakeUrlBooking);
+  // 乗り物専用
+  set('vehicle-name', d.vehicleName);
+  set('vehicle-route', d.vehicleRoute);
+  set('vehicle-class', d.vehicleClass);
+  // 映画専用
+  set('movie-subtitle', d.movieSubtitle);
+  set('movie-director', d.movieDirector);
+  set('movie-cast', d.movieCast);
+  set('movie-cinema', d.movieCinema);
+  if (d.movieSpoiler) { const r = document.querySelector(`input[name="movie-spoiler"][value="${d.movieSpoiler}"]`); if (r) r.checked = true; }
+  set('movie-story', d.movieStory);
+  set('movie-ticket', d.movieTicket);
+  set('movie-series', d.movieSeries);
+  set('movie-review1', d.movieReview1);
+  set('movie-review2', d.movieReview2);
+  set('movie-goods', d.movieGoods);
+  set('movie-streaming', d.movieStreaming);
+  // セクション表示を更新
+  onGenreChange();
+  if (d.orderItems?.length) {
+    document.getElementById('order-items').innerHTML = '';
+    d.orderItems.forEach(i => addOrderItem(i.name, i.price));
+  }
+  document.querySelectorAll('textarea').forEach(autoResize);
+}
+
+// ─── 注文アイテム ─────────────────────────────────────────
+function addOrderItem(name = '', price = '') {
+  const div = document.createElement('div');
+  div.className = 'order-item';
+  div.innerHTML = `
+    <input type="text" placeholder="メニュー名" value="${escHtml(name)}" oninput="scheduleAutoSave()">
+    <input type="text" placeholder="金額" value="${escHtml(price)}" oninput="scheduleAutoSave()">
+    <button class="btn-remove" onclick="removeOrderItem(this)">×</button>`;
+  document.getElementById('order-items').appendChild(div);
+}
+
+function removeOrderItem(btn) {
+  const c = document.getElementById('order-items');
+  if (c.children.length > 1) { btn.parentElement.remove(); scheduleAutoSave(); }
+}
+
+// ─── textarea 自動リサイズ ────────────────────────────────
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ─── テキスト生成（memo.txt 形式） ───────────────────────
+function dayOfWeek(dateStr) {
+  if (!dateStr) return '';
+  const days = ['日','月','火','水','木','金','土'];
+  return days[new Date(dateStr).getDay()] + '曜日';
+}
+
+function buildMemoText(d) {
+  if (d.genre === 'おでかけ') return buildOdekakeMemoText(d);
+  const dateStr = d.visitDate
+    ? (() => { const [y, m, day] = d.visitDate.split('-'); return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`; })()
+    : '';
+  const orderLines = (d.orderItems || []).filter(i => i.name).map(i => `  - ${i.name}${i.price ? '　' + i.price : ''}`).join('\n') || '  - ';
+  return `ジャンル: ${d.genre || ''}
+訪問日: ${dateStr}
+店名: ${d.storeName || ''}
+エリア（最寄り駅・都市名など）: ${d.area || ''}
+
+========================================
+■ イントロ
+========================================
+
+【訪問のきっかけ・エピソード】
+${d.introReason || ''}
+
+【個人的なエピソード・特別な事情】
+${d.introEpisode || ''}
+
+【関連記事】
+イントロ直後に紹介する記事:
+  記事ID: ${d.relatedIntroId || ''}
+  コメント: ${d.relatedIntroComment || ''}
+
+まとめ後に紹介する記事:
+  記事ID: ${d.relatedSummaryId || ''}
+  コメント: ${d.relatedSummaryComment || ''}
+
+【X（Twitter）投稿】
+URL: ${d.xUrl || ''}
+
+========================================
+■ お店の概要
+========================================
+
+【外観・雰囲気】
+${d.appearance || ''}
+
+【混雑・待ち時間】
+訪問時刻: ${d.visitTime || ''}
+混み具合: ${d.crowd || ''}
+待ち時間: ${d.waitTime || ''}
+
+【注文方法・メニュー】
+注文方法: ${d.orderMethod || ''}
+注文したもの:
+${orderLines}
+合計金額: ${d.totalPrice || ''}
+カスタマイズ・辛さ変更など: ${d.customize || ''}
+
+========================================
+■ 実食レビュー
+========================================
+
+【良かったこと・感動したこと】
+${d.reviewGood || ''}
+
+【ネガティブな点・注意点】
+${d.reviewBad || ''}
+
+========================================
+■ まとめ・感想
+========================================
+${d.summary || ''}
+
+========================================
+■ 店舗情報
+========================================
+住所: ${d.address || ''}
+電話番号: ${d.phone || ''}
+営業時間: ${d.hours || ''}
+定休日: ${d.closed || ''}
+駐車場: ${d.parking || ''}
+公式サイト URL: ${d.urlSite || ''}
+Instagram URL: ${d.urlInstagram || ''}
+X（Twitter）URL: ${d.urlTwitter || ''}
+食べログ・ホットペッパー URL: ${d.urlTabelog || ''}
+
+========================================
+■ その他メモ
+========================================
+${d.other || ''}`;
+}
+
+// ─── おでかけ テキスト生成 ────────────────────────────────
+function buildOdekakeMemoText(d) {
+  const dateStr = d.visitDate
+    ? (() => { const [y, m, day] = d.visitDate.split('-'); return `${y}年${m}月${day}日（${dayOfWeek(d.visitDate)}）`; })()
+    : '';
+  const pattern = d.odekakePattern || '①施設';
+  const isMovie = pattern === '④映画';
+  const isVehicle = pattern === '③乗り物';
+  const hasInfo = pattern === '①施設' || pattern === '⑤その他';
+
+  const sectionLabels = {
+    '①施設':   { overview: '施設の概要・基本情報', exp: '体験レポ', exp1: '体験①', exp2: '体験②・施設内グルメ', info: '施設情報' },
+    '②イベント':{ overview: 'イベント概要',        exp: '当日レポ', exp1: '会場の雰囲気・メインコンテンツ', exp2: 'グッズ・飲食', info: '' },
+    '③乗り物': { overview: '基本情報・予約方法',   exp: '乗車・搭乗レポ', exp1: '座席・設備・食事', exp2: 'シャワー・アメニティ・トラブル', info: '' },
+    '⑤その他': { overview: '基本情報・アクセス',   exp: '体験レポ・現地の様子', exp1: '見どころ①', exp2: '見どころ②・周辺グルメ', info: 'スポット情報' },
+  };
+  const lbl = sectionLabels[pattern] || sectionLabels['①施設'];
+
+  let text = `ジャンル: おでかけ（${pattern}）\n`;
+  text += `訪問日: ${dateStr}\n`;
+  text += `${isMovie ? '映画タイトル' : isVehicle ? '乗り物名' : '場所名'}: ${d.storeName || ''}\n`;
+  text += `エリア: ${d.area || ''}\n`;
+  text += `同行者: ${d.companion || ''}\n`;
+
+  if (isVehicle) {
+    text += `便名: ${d.vehicleName || ''}\n`;
+    text += `出発地→目的地: ${d.vehicleRoute || ''}\n`;
+    text += `利用クラス・席種: ${d.vehicleClass || ''}\n`;
+  }
+  if (isMovie) {
+    text += `原題: ${d.movieSubtitle || ''}\n`;
+    text += `監督: ${d.movieDirector || ''} / 主演: ${d.movieCast || ''}\n`;
+    text += `映画館: ${d.movieCinema || ''}\n`;
+    text += `ネタバレ: ${d.movieSpoiler || ''}\n`;
+  }
+
+  text += `\n========================================\n■ イントロ\n========================================\n\n`;
+  text += `【訪問のきっかけ・エピソード】\n${d.introReason || ''}\n\n`;
+  text += `【個人的なエピソード】\n${d.introEpisode || ''}\n\n`;
+  text += `【関連記事】\nイントロ直後に紹介する記事:\n  記事ID: ${d.relatedIntroId || ''}\n  コメント: ${d.relatedIntroComment || ''}\n\nまとめ後に紹介する記事:\n  記事ID: ${d.relatedSummaryId || ''}\n  コメント: ${d.relatedSummaryComment || ''}\n\n`;
+  text += `【X（Twitter）投稿】\nURL: ${d.xUrl || ''}\n`;
+
+  if (!isMovie) {
+    text += `\n========================================\n■ ${lbl.overview}\n========================================\n${d.odekakeOverview || ''}\n`;
+    text += `\n========================================\n■ ${lbl.exp}\n========================================\n\n`;
+    text += `【${lbl.exp1}】\n${d.odekakeExp1 || ''}\n\n`;
+    text += `【${lbl.exp2}】\n${d.odekakeExp2 || ''}\n\n`;
+    text += `【ネガティブな点・注意点】\n${d.odekakedBad || ''}\n`;
+  } else {
+    text += `\n========================================\n■ 作品情報\n========================================\n\n`;
+    text += `【あらすじ（ネタバレなし）・推奨対象】\n${d.movieStory || ''}\n\n`;
+    text += `【チケット・上映情報】\n${d.movieTicket || ''}\n\n`;
+    text += `【シリーズ情報】\n${d.movieSeries || ''}\n`;
+    text += `\n========================================\n■ 感想・レビュー\n========================================\n\n`;
+    text += `【テーマ・演出・泣けたポイント】\n${d.movieReview1 || ''}\n\n`;
+    text += `【子供の反応・シリーズ比較】\n${d.movieReview2 || ''}\n`;
+  }
+
+  text += `\n========================================\n■ まとめ・感想\n========================================\n${d.summary || ''}\n`;
+
+  if (isMovie) {
+    text += `\n========================================\n■ グッズ・配信情報\n========================================\n\n`;
+    text += `【来場特典・グッズ】\n${d.movieGoods || ''}\n\n`;
+    text += `【配信サービス情報】\n${d.movieStreaming || ''}\n`;
+  }
+
+  if (hasInfo) {
+    text += `\n========================================\n■ ${lbl.info}\n========================================\n`;
+    text += `住所: ${d.odekakeAddress || ''}\n`;
+    text += `電話番号: ${d.odekakePhone || ''}\n`;
+    text += `営業時間: ${d.odekakeHours || ''}\n`;
+    text += `定休日: ${d.odekakedClosed || ''}\n`;
+    text += `駐車場: ${d.odekakeParking || ''}\n`;
+    text += `公式サイト URL: ${d.odekakeUrlSite || ''}\n`;
+    text += `Instagram URL: ${d.odekakeUrlInstagram || ''}\n`;
+    text += `予約サイト URL: ${d.odekakeUrlBooking || ''}\n`;
+  }
+
+  text += `\n========================================\n■ FAQ・よくある質問メモ\n========================================\n${d.odekakedFaq || ''}\n`;
+  text += `\n========================================\n■ その他メモ\n========================================\n${d.other || ''}`;
+  return text;
+}
+
+// ─── コピー ──────────────────────────────────────────────
+async function copyMemo() {
+  const text = buildMemoText(collectData());
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  showToast('✅ コピーしました！');
+}
+
+// ─── 設定モーダル ─────────────────────────────────────────
+function openSettings() {
+  const token = localStorage.getItem('github_token') || '';
+  const statusEl = document.getElementById('token-status-display');
+  if (token) {
+    statusEl.innerHTML = '<div class="token-status set">✅ トークン設定済み</div>';
+    document.getElementById('token-input').value = '';
+    document.getElementById('token-input').placeholder = '変更する場合のみ入力';
+  } else {
+    statusEl.innerHTML = '<div class="token-status notset">⚠️ トークン未設定（☁️ 保存を使うには設定が必要です）</div>';
+    document.getElementById('token-input').value = '';
+    document.getElementById('token-input').placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
+  }
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+function handleSettingsOverlayClick(e) {
+  if (e.target === document.getElementById('settings-modal')) closeSettings();
+}
+function saveToken() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) { showToast('トークンを入力してください'); return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    showToast('⚠️ トークンの形式が正しくありません'); return;
+  }
+  localStorage.setItem('github_token', token);
+  closeSettings();
+  showToast('✅ トークンを保存しました');
+}
+function clearToken() {
+  if (!confirm('トークンを削除しますか？')) return;
+  localStorage.removeItem('github_token');
+  closeSettings();
+  showToast('トークンを削除しました');
+}
+
+// ─── GitHub Gist 保存 ────────────────────────────────────
+async function saveToGist() {
+  const token = localStorage.getItem('github_token');
+  if (!token) { openSettings(); showToast('⚠️ 先にトークンを設定してください'); return; }
+
+  const btn = document.getElementById('btn-cloud');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const d = collectData();
+    const memoText = buildMemoText(d);
+    const storeName = d.storeName || '店名未入力';
+    const visitDate = d.visitDate ? d.visitDate.replace(/-/g, '') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const fileName = `${visitDate}_${storeName}.txt`;
+    const description = `やすじゅんメモ: ${storeName} (${visitDate})`;
+
+    const existingGistId = localStorage.getItem('gist_id_' + currentId);
+    let url, method;
+    if (existingGistId) {
+      url = `https://api.github.com/gists/${existingGistId}`;
+      method = 'PATCH';
+    } else {
+      url = 'https://api.github.com/gists';
+      method = 'POST';
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, public: false, files: { [fileName]: { content: memoText } } })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    localStorage.setItem('gist_id_' + currentId, data.id);
+    showToast('☁️ Gistに保存しました！');
+  } catch(e) {
+    showToast('❌ 保存失敗: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☁️ 保存';
+  }
+}
+
+// ─── トースト ────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── 初期化 ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const ids = getIds();
+  if (ids.length > 0) {
+    // 最後に保存したメモを開く
+    currentId = ids[ids.length - 1];
+    try {
+      const saved = localStorage.getItem(DATA_KEY(currentId));
+      if (saved) loadData(JSON.parse(saved));
+    } catch {}
+  } else {
+    currentId = genId();
+  }
+  updateCurrentLabel();
+  onGenreChange();
+
+  // 自動保存イベント
+  document.querySelectorAll('input:not([type=radio]), select, textarea').forEach(el => {
+    el.addEventListener('input', scheduleAutoSave);
+  });
+  document.querySelectorAll('input[type=radio]').forEach(el => {
+    el.addEventListener('change', scheduleAutoSave);
+  });
+
+  // textarea 自動リサイズ
+  document.querySelectorAll('textarea').forEach(el => {
+    el.addEventListener('input', () => autoResize(el));
+  });
+
+  // 今日の日付をデフォルト設定
+  const dateEl = document.getElementById('visit-date');
+  if (!dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+});
+</script>
+</body>
+</html>
