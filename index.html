@@ -98,6 +98,61 @@
       white-space: nowrap;
     }
     .btn-cloud:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-load {
+      background: #37474f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    /* 読み込みモーダル */
+    .load-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .load-modal-overlay.open { display: flex; }
+    .load-modal-sheet {
+      background: #fff;
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 640px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .load-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .load-modal-body {
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .load-gist-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+    }
+    .load-gist-item:active { background: #f5f5f5; }
+    .load-gist-item .gist-desc { font-size: 14px; font-weight: bold; }
+    .load-gist-item .gist-date { font-size: 12px; color: #888; margin-top: 2px; }
+    .load-modal-empty { padding: 24px 16px; text-align: center; color: #888; font-size: 14px; }
     .btn-generate {
       background: #e65100;
       color: white;
@@ -456,6 +511,40 @@
       display: block;
     }
 
+    /* ── 動画UI ── */
+    .spot-video-area {
+      border-top: 1px solid #d4edd9;
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .btn-video-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 12px;
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 6px;
+    }
+    .video-entry {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .video-entry .video-url {
+      flex: 2;
+      font-size: 13px;
+    }
+    .video-entry .video-comment {
+      flex: 1;
+      font-size: 13px;
+    }
+
     /* ── 写真UI ── */
     .btn-photo-add {
       display: inline-flex;
@@ -566,9 +655,23 @@
 <div class="memo-bar">
   <span id="current-memo-label">新規メモ</span>
   <button class="btn-cloud" id="btn-cloud" onclick="saveToGist()">☁️ 保存</button>
+  <button class="btn-load" onclick="openLoadModal()">📥 読み込む</button>
   <button class="btn-generate" id="btn-generate" onclick="openGenModal()">🚀 記事生成</button>
   <button class="btn-list" onclick="openList()">📋 一覧</button>
   <button class="btn-new" onclick="createNewMemo()">＋ 新規</button>
+</div>
+
+<!-- Gist読み込みモーダル -->
+<div class="load-modal-overlay" id="load-modal" onclick="handleLoadOverlayClick(event)">
+  <div class="load-modal-sheet">
+    <div class="load-modal-header">
+      <span>📥 Gistから読み込む</span>
+      <button class="btn-gen-close" onclick="closeLoadModal()">✕</button>
+    </div>
+    <div class="load-modal-body" id="load-modal-body">
+      <div class="load-modal-empty">読み込み中...</div>
+    </div>
+  </div>
 </div>
 
 <!-- 記事生成モーダル -->
@@ -1539,6 +1642,12 @@ function collectData() {
     matomeSpots:          (() => {
       const spots = [];
       document.querySelectorAll('#spot-items .spot-card').forEach(card => {
+        const videoUrls = [];
+        card.querySelectorAll('.video-entry').forEach(row => {
+          const url = row.querySelector('.video-url').value.trim();
+          const comment = row.querySelector('.video-comment').value.trim();
+          if (url) videoUrls.push({ url, comment });
+        });
         spots.push({
           spotId:         card.dataset.spotId || '',
           type:           card.querySelector('.spot-type').value,
@@ -1546,6 +1655,7 @@ function collectData() {
           memo:           card.querySelector('.spot-memo').value,
           articleId:      card.querySelector('.spot-article-id').value,
           articleComment: card.querySelector('.spot-article-comment').value,
+          videoUrls,
         });
       });
       return spots;
@@ -1707,15 +1817,37 @@ function addSpotItem(data = {}) {
       <button class="btn-photo-add" type="button" onclick="triggerSpotPhotoInput('${spotId}')">📷 写真追加</button>
       <div class="photo-thumbs"></div>
     </div>
+    <div class="spot-video-area">
+      <button class="btn-video-add" type="button" onclick="addSpotVideoItem(this)">📹 動画URLを追加</button>
+      <div class="spot-video-list"></div>
+    </div>
   `;
   document.getElementById('spot-items').appendChild(div);
   div.querySelectorAll('textarea').forEach(el => { el.addEventListener('input', () => autoResize(el)); autoResize(el); });
+  // 動画URLを復元
+  if (data.videoUrls?.length) {
+    const list = div.querySelector('.spot-video-list');
+    data.videoUrls.forEach(v => addSpotVideoItem(null, list, v));
+  }
   scheduleAutoSave();
 }
 
 function removeSpotItem(btn) {
   const c = document.getElementById('spot-items');
   if (c.children.length > 1) { btn.closest('.spot-card').remove(); scheduleAutoSave(); }
+}
+
+// ─── スポット動画 ──────────────────────────────────────────
+function addSpotVideoItem(btn, listEl, data = {}) {
+  const list = listEl || btn.closest('.spot-video-area').querySelector('.spot-video-list');
+  const row = document.createElement('div');
+  row.className = 'video-entry';
+  row.innerHTML = `
+    <input type="url" class="video-url" placeholder="YouTube URL（例: https://youtu.be/...）" value="${escHtml(data.url||'')}" oninput="scheduleAutoSave()">
+    <input type="text" class="video-comment" placeholder="コメント（例: 羊の餌やりの様子）" value="${escHtml(data.comment||'')}" oninput="scheduleAutoSave()">
+    <button class="btn-remove" onclick="this.closest('.video-entry').remove(); scheduleAutoSave()">×</button>`;
+  list.appendChild(row);
+  scheduleAutoSave();
 }
 
 // ─── textarea 自動リサイズ ────────────────────────────────
@@ -1934,7 +2066,12 @@ function buildMatomeOdekakeMemoText(d) {
     text += `\n--- スポット${i + 1} ---\n`;
     text += `種類: ${s.type || ''}\n`;
     text += `名前: ${s.name || ''}\n`;
-    text += `一言メモ: ${s.memo || ''}\n`;
+    text += `体験メモ: ${s.memo || ''}\n`;
+    if (s.videoUrls?.length) {
+      s.videoUrls.forEach((v, vi) => {
+        text += `動画URL${vi + 1}: ${v.url}${v.comment ? `（コメント: ${v.comment}）` : ''}\n`;
+      });
+    }
     text += `個別記事ID: ${s.articleId || ''}\n`;
     text += `個別記事リンクのコメントテキスト: ${s.articleComment || ''}\n`;
   });
@@ -2179,10 +2316,17 @@ async function saveToGist() {
       method = 'POST';
     }
 
+    const dataFileName = fileName.replace(/\.txt$/, '_data.json');
     const res = await fetch(url, {
       method,
       headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description, public: false, files: { [fileName]: { content: memoText } } })
+      body: JSON.stringify({
+        description, public: false,
+        files: {
+          [fileName]:     { content: memoText },
+          [dataFileName]: { content: JSON.stringify(d) },
+        }
+      })
     });
 
     if (!res.ok) {
@@ -2196,7 +2340,7 @@ async function saveToGist() {
     const owner  = localStorage.getItem('gh_owner') || 'yasujun11';
     const repo   = localStorage.getItem('gh_repo')  || 'yasujun-memo';
     const photos = await getAllPhotos(currentId);
-    const unuploaded = photos.filter(p => !p.uploadedPath);
+    const unuploaded = photos.filter(p => !p.uploadedPath && p.blob);
 
     if (unuploaded.length > 0) {
       const safeStore = (d.storeName || '未入力').replace(/[\\/:*?"<>|]/g, '_');
@@ -2252,12 +2396,142 @@ async function saveToGist() {
     } else {
       showToast('☁️ Gistに保存しました！');
     }
+
+    // 全アップロード済み写真のURLを _data.json に保存（デバイス間共有用）
+    const allPhotos = await getAllPhotos(currentId);
+    const uploadedPhotos = allPhotos.filter(p => p.uploadedPath);
+    if (uploadedPhotos.length > 0) {
+      const photoUrls = uploadedPhotos.map(p => ({
+        scope:    p.scope,
+        url:      `https://raw.githubusercontent.com/${owner}/${repo}/main/${p.uploadedPath}`,
+        fileName: p.fileName || '',
+      }));
+      const dWithPhotos = { ...d, photoUrls };
+      await fetch(`https://api.github.com/gists/${data.id}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: { [dataFileName]: { content: JSON.stringify(dWithPhotos) } } })
+      }).catch(() => {});
+    }
   } catch(e) {
     showToast('❌ 保存失敗: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = '☁️ 保存';
   }
+}
+
+// ─── Gist読み込み ─────────────────────────────────────────
+function openLoadModal() {
+  document.getElementById('load-modal').classList.add('open');
+  fetchGistList();
+}
+function closeLoadModal() {
+  document.getElementById('load-modal').classList.remove('open');
+}
+function handleLoadOverlayClick(e) {
+  if (e.target === document.getElementById('load-modal')) closeLoadModal();
+}
+
+async function fetchGistList() {
+  const token = localStorage.getItem('github_token');
+  if (!token) {
+    document.getElementById('load-modal-body').innerHTML =
+      '<div class="load-modal-empty">⚠️ GitHubトークンが設定されていません。設定から登録してください。</div>';
+    return;
+  }
+  document.getElementById('load-modal-body').innerHTML =
+    '<div class="load-modal-empty">読み込み中...</div>';
+  try {
+    const res = await fetch('https://api.github.com/gists?per_page=100', {
+      headers: { Authorization: `token ${token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gists = await res.json();
+
+    // やすじゅんメモのGistだけ抽出（.txtファイルを持つもの）
+    const memos = gists.filter(g =>
+      Object.keys(g.files).some(f => f.endsWith('.txt') && !f.endsWith('_data.json'))
+    );
+
+    const body = document.getElementById('load-modal-body');
+    if (memos.length === 0) {
+      body.innerHTML = '<div class="load-modal-empty">☁️ 保存済みのメモが見つかりません。</div>';
+      return;
+    }
+    body.innerHTML = '';
+    memos.forEach(g => {
+      const txtFile = Object.keys(g.files).find(f => f.endsWith('.txt') && !f.endsWith('_data.json')) || '';
+      const updatedAt = g.updated_at ? new Date(g.updated_at).toLocaleString('ja-JP') : '';
+      const div = document.createElement('div');
+      div.className = 'load-gist-item';
+      div.innerHTML = `
+        <div class="gist-desc">${escHtml(g.description || txtFile)}</div>
+        <div class="gist-date">最終更新: ${updatedAt}</div>`;
+      div.onclick = () => loadGistItem(g.id, token);
+      body.appendChild(div);
+    });
+  } catch (e) {
+    document.getElementById('load-modal-body').innerHTML =
+      `<div class="load-modal-empty">❌ 取得失敗: ${e.message}</div>`;
+  }
+}
+
+async function loadGistItem(gistId, token) {
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `token ${token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gist = await res.json();
+
+    // _data.json があれば構造化データで復元、なければ不可
+    const dataFile = Object.values(gist.files).find(f => f.filename.endsWith('_data.json'));
+    if (!dataFile) {
+      showToast('⚠️ このメモはデータ形式が古く読み込めません。再度PCで☁️保存してください。');
+      return;
+    }
+    const d = JSON.parse(dataFile.content);
+
+    // 新規メモとして追加
+    const newId = genId();
+    currentId = newId;
+    const ids = getIds();
+    ids.push(newId);
+    saveIds(ids);
+
+    // Gist IDを紐付け（以降の☁️保存でこのGistを上書き）
+    localStorage.setItem('gist_id_' + newId, gistId);
+
+    clearFormOnly();
+    loadData(d);
+    saveCurrentMemo();
+    updateCurrentLabel();
+
+    // 別デバイスでアップ済みの写真をサムネイル表示
+    if (d.photoUrls && d.photoUrls.length > 0) {
+      for (const pInfo of d.photoUrls) {
+        const container = getPhotoContainer(pInfo.scope);
+        if (container) renderRemotePhotoThumb(container, pInfo.url);
+      }
+    }
+
+    closeLoadModal();
+    showToast(`✅ 読み込みました！${d.photoUrls?.length ? `（写真${d.photoUrls.length}枚を表示）` : ''}`);
+  } catch (e) {
+    showToast('❌ 読み込み失敗: ' + e.message);
+  }
+}
+
+// フォームのみリセット（IDは変えない内部用）
+function clearFormOnly() {
+  document.querySelectorAll('input:not([type=radio]):not([type=file])').forEach(el => { el.value = ''; });
+  document.querySelectorAll('textarea').forEach(el => { el.value = ''; });
+  document.querySelectorAll('input[type=radio]').forEach(el => { el.checked = false; });
+  document.getElementById('order-items').innerHTML = '';
+  addOrderItem();
+  document.getElementById('spot-items').innerHTML = '';
+  addSpotItem();
 }
 
 // ─── トースト ────────────────────────────────────────────
@@ -2348,6 +2622,16 @@ function getPhotoContainer(scope) {
     return card ? card.querySelector('.photo-thumbs') : null;
   }
   return null;
+}
+
+function renderRemotePhotoThumb(container, url) {
+  // 別デバイスでアップ済みの写真（読み取り専用・削除ボタンなし）
+  const div = document.createElement('div');
+  div.className = 'photo-thumb photo-thumb-remote';
+  div.innerHTML = `
+    <img src="${escHtml(url)}" alt="アップ済み写真" loading="lazy">
+    <span class="photo-upload-badge" title="別デバイスからアップ済み">☁️</span>`;
+  container.appendChild(div);
 }
 
 function renderPhotoThumb(container, key, blobUrl, uploaded) {
