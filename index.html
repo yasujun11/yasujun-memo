@@ -783,6 +783,14 @@
         <option value="FUNKY MONKEY BΛBY'S">FUNKY MONKEY BΛBY'S</option>
       </select>
     </div>
+    <div class="field" id="sub-category-field">
+      <label>サブカテゴリ</label>
+      <select id="sub-category" onchange="scheduleAutoSave()">
+        <option value="なし">なし</option>
+        <option value="食べ歩き">食べ歩き</option>
+        <option value="破天荒グルメ">破天荒グルメ</option>
+      </select>
+    </div>
     <div class="field">
       <label>訪問日</label>
       <input type="date" id="visit-date">
@@ -1451,6 +1459,7 @@ function onGenreChange() {
   ['section-store-overview', 'section-review', 'section-shop-info'].forEach(id => {
     document.getElementById(id).style.display = isGourmet ? '' : 'none';
   });
+  document.getElementById('sub-category-field').style.display = isGourmet ? '' : 'none';
 
   // 共通セクション（まとめ時は専用のものを使うので非表示）
   document.getElementById('section-common-summary').style.display = isMatome ? 'none' : '';
@@ -1569,6 +1578,7 @@ function collectData() {
   });
   return {
     genre:                document.getElementById('genre').value,
+    subCategory:          document.getElementById('sub-category').value,
     visitDate:            document.getElementById('visit-date').value,
     storeName:            document.getElementById('store-name').value,
     area:                 document.getElementById('area').value,
@@ -1679,6 +1689,7 @@ function collectData() {
 function loadData(d) {
   const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
   set('genre', d.genre);
+  set('sub-category', d.subCategory ?? 'なし');
   set('visit-date', d.visitDate);
   set('store-name', d.storeName);
   set('area', d.area);
@@ -1871,6 +1882,7 @@ function buildMemoText(d) {
     : '';
   const orderLines = (d.orderItems || []).filter(i => i.name).map(i => `  - ${i.name}${i.price ? '　' + i.price : ''}`).join('\n') || '  - ';
   return `ジャンル: ${d.genre || ''}
+サブカテゴリ: ${d.subCategory || 'なし'}
 訪問日: ${dateStr}
 店名: ${d.storeName || ''}
 エリア（最寄り駅・都市名など）: ${d.area || ''}
